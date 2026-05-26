@@ -1,5 +1,5 @@
-fix: 외부 LLM 모델 목록 파싱 호환성 보완 및 드롭다운 빈칸 렌더링 예방 정합성 적용
+fix: llama.cpp 역시 OpenAI v1/models 규격으로 단일 대통합 및 리팩토링
 
-- Ollama 모델 조회 시 m.name 외에 m.model 필드까지 fallback 파싱 처리해 호환성 극대화 (routes/settings.ts, ConnectionsPanel.tsx)
-- 엔진 전환 또는 핑 성공 시, 기존 모델명이 목록에 존재하지 않을 때 드롭다운에 빈칸이 렌더링되는 문제를 예방하기 위한 자동 정합성 교정 useEffect 도입 (ConnectionsPanel.tsx)
-- 타입 검사(tsc) 및 Vite 프로덕션 빌드 무결성 확인 및 빌드 테스트 완료
+- 최신 llama.cpp 서버(llama-server)의 OpenAI 호환 규격을 반영하여 /v1/models 엔드포인트 단일 대통합 (routes/settings.ts, ConnectionsPanel.tsx, CooperativeChat.tsx)
+- 불필요하고 복잡한 /props 독자 파싱 로직을 걷어내고, OpenAI 표준 data.data.map(m.id) 형태로 LM Studio, vLLM, llama.cpp 파싱 완벽 일원화
+- 전체 UI 폰트 크기 대폭 상향 리팩토링 검증 및 tsc 타입 컴파일 / Vite 빌드 완료

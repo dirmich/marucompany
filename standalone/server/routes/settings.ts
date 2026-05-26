@@ -65,9 +65,13 @@ settingsRouter.post('/proxy/models', async (c) => {
     }
 
     let targetUrl = `${llm_url}/api/tags`;
-    if (llm_type === 'lmstudio') targetUrl = `${llm_url}/models`;
-    else if (llm_type === 'llamacpp') targetUrl = `${llm_url}/health`;
-    else if (llm_type === 'vllm') targetUrl = `${llm_url}/models`;
+    if (llm_type === 'lmstudio' || llm_type === 'vllm' || llm_type === 'llamacpp') {
+      let cleanUrl = llm_url.replace(/\/+$/, "");
+      if (!cleanUrl.endsWith("/v1")) {
+        cleanUrl = `${cleanUrl}/v1`;
+      }
+      targetUrl = `${cleanUrl}/models`;
+    }
 
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 2500);
@@ -88,10 +92,8 @@ settingsRouter.post('/proxy/models', async (c) => {
 
       if (llm_type === 'ollama') {
         models = data.models ? data.models.map((m: any) => m.name || m.model || '') : [];
-      } else if (llm_type === 'lmstudio' || llm_type === 'vllm') {
+      } else if (llm_type === 'lmstudio' || llm_type === 'vllm' || llm_type === 'llamacpp') {
         models = data.data ? data.data.map((m: any) => m.id) : [];
-      } else if (llm_type === 'llamacpp') {
-        models = ['llama.cpp-default-server'];
       }
 
       return c.json({ success: true, models });

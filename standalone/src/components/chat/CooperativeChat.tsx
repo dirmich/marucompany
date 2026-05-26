@@ -110,9 +110,13 @@ export default function CooperativeChat() {
       // B. Fallback: 브라우저 다이렉트 핑 테스트 (백엔드 오프라인 시)
       try {
         let pingUrl = `${url}/api/tags`;
-        if (type === 'lmstudio') pingUrl = `${url}/models`;
-        else if (type === 'llamacpp') pingUrl = `${url}/health`;
-        else if (type === 'vllm') pingUrl = `${url}/models`;
+        if (type === 'lmstudio' || type === 'vllm' || type === 'llamacpp') {
+          let cleanUrl = url.replace(/\/+$/, "");
+          if (!cleanUrl.endsWith("/v1")) {
+            cleanUrl = `${cleanUrl}/v1`;
+          }
+          pingUrl = `${cleanUrl}/models`;
+        }
 
         const res = await fetch(pingUrl);
         if (res.ok) setEngineConnected(true);
@@ -351,7 +355,7 @@ export default function CooperativeChat() {
             <span className="text-xs font-mono font-bold tracking-wider text-gray-200">CORPORATE CHAT</span>
           </div>
 
-          <div className="flex items-center gap-2 font-mono text-[9px] font-bold">
+          <div className="flex items-center gap-2 font-mono text-xs font-bold">
             {dbSyncActive ? (
               <span className="text-emerald-400 bg-emerald-950/40 border border-emerald-500/20 px-2 py-0.5 rounded-full">
                 🛢️ PostgreSQL DB-First RAG 연동중
@@ -392,11 +396,11 @@ export default function CooperativeChat() {
                 </div>
 
                 <div className="flex flex-col space-y-1">
-                  <span className={`text-[10px] text-gray-400 font-mono ${isUser ? 'text-right' : ''}`}>
-                    {msg.senderName} <span className="text-[8px] text-gray-500 ml-1">{msg.timestamp}</span>
+                  <span className={`text-xs text-gray-400 font-mono ${isUser ? 'text-right' : ''}`}>
+                    {msg.senderName} <span className="text-[10px] text-gray-500 ml-1">{msg.timestamp}</span>
                   </span>
 
-                  <div className={`p-3 rounded-2xl text-xs leading-relaxed whitespace-pre-line ${
+                  <div className={`p-3 rounded-2xl text-sm leading-relaxed whitespace-pre-line ${
                     isUser
                       ? 'bg-electric-cyan/15 text-electric-cyan border border-electric-cyan/30 rounded-tr-none'
                       : 'bg-obsidian border border-slate-800 text-gray-200 rounded-tl-none shadow'
@@ -418,7 +422,7 @@ export default function CooperativeChat() {
             onChange={(e) => setInputText(e.target.value)}
             disabled={isProcessing}
             placeholder="예) 코다리야 병아리 다마고치 게임 만들어줘..."
-            className="flex-1 bg-obsidian-card border border-obsidian-border rounded-xl px-4 py-2.5 text-xs text-gray-200 focus:outline-none focus:border-electric-cyan transition placeholder-gray-500 font-sans"
+            className="flex-1 bg-obsidian-card border border-obsidian-border rounded-xl px-4 py-2.5 text-sm text-gray-200 focus:outline-none focus:border-electric-cyan transition placeholder-gray-500 font-sans"
           />
           <button
             type="submit"
@@ -442,7 +446,7 @@ export default function CooperativeChat() {
           <div className="bg-obsidian-card rounded-2xl border border-obsidian-border p-4 flex flex-col glass-panel">
             <div className="flex items-center gap-1.5 border-b border-obsidian-border pb-2.5 mb-3">
               <Zap className="w-4 h-4 text-electric-cyan" />
-              <h3 className="text-xs font-bold text-gray-200 font-sans">에이전트 오케스트레이션 (Dispatch)</h3>
+              <h3 className="text-sm font-bold text-gray-200 font-sans">에이전트 오케스트레이션 (Dispatch)</h3>
             </div>
 
             <div className="space-y-3 font-sans">
@@ -459,10 +463,10 @@ export default function CooperativeChat() {
                 >
                   <span className="text-sm shrink-0">{step.agentEmoji}</span>
                   <div className="flex-1 flex flex-col">
-                    <span className="text-[10px] font-bold tracking-wide">{step.agentName}</span>
-                    <span className="text-[9px] mt-0.5 leading-relaxed">{step.task}</span>
+                    <span className="text-xs font-bold tracking-wide">{step.agentName}</span>
+                    <span className="text-[11px] mt-0.5 leading-relaxed">{step.task}</span>
                   </div>
-                  <span className={`text-[8px] font-mono px-1.5 py-0.5 rounded border shrink-0 uppercase ${
+                  <span className={`text-[10px] font-mono px-1.5 py-0.5 rounded border shrink-0 uppercase ${
                     step.status === 'processing'
                       ? 'bg-electric-cyan/20 border-electric-cyan/30 text-electric-cyan animate-pulse'
                       : step.status === 'done'
@@ -493,7 +497,7 @@ export default function CooperativeChat() {
               </span>
             </div>
 
-            <div className="w-full space-y-2 mb-4 font-mono text-[9px]">
+            <div className="w-full space-y-2 mb-4 font-mono text-[11px]">
               <div className="flex flex-col gap-1">
                 <div className="flex justify-between text-gray-400">
                   <span>😋 포만감</span>
@@ -528,19 +532,19 @@ export default function CooperativeChat() {
             <div className="flex gap-2 w-full">
               <button
                 onClick={feedChic}
-                className="flex-1 py-1.5 bg-orange-600 hover:bg-orange-500 text-white rounded-lg text-[9px] font-bold transition"
+                className="flex-1 py-1.5 bg-orange-600 hover:bg-orange-500 text-white rounded-lg text-[11px] font-bold transition"
               >
                 🍖 밥주기
               </button>
               <button
                 onClick={playChic}
-                className="flex-1 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-[9px] font-bold transition"
+                className="flex-1 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-[11px] font-bold transition"
               >
                 🎮 놀아주기
               </button>
               <button
                 onClick={sleepChic}
-                className="flex-1 py-1.5 bg-cyan-600 hover:bg-cyan-500 text-white rounded-lg text-[9px] font-bold transition"
+                className="flex-1 py-1.5 bg-cyan-600 hover:bg-cyan-500 text-white rounded-lg text-[11px] font-bold transition"
               >
                 💤 재우기
               </button>

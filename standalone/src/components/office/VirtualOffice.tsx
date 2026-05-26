@@ -251,14 +251,14 @@ export default function VirtualOffice() {
           <h2 className="text-xl font-bold flex items-center gap-2 text-electric-cyan font-sans">
             <Cpu className="w-5 h-5 text-electric-cyan" /> Maru Company 24시간 가상 사무실
           </h2>
-          <p className="text-xs text-gray-400 mt-1">
+          <p className="text-sm text-gray-400 mt-1">
             대표이사 Jay와 9명의 에이전트 요원들이 로컬에서 협업하며 24시간 오프라인 작동하는 자율 회사 모델
           </p>
         </div>
 
         <div className="flex items-center gap-3">
           <div className="flex items-center gap-2 bg-obsidian/60 px-3 py-1.5 rounded-lg border border-obsidian-border">
-            <span className="text-xs text-gray-400">24H 자율 사이클</span>
+            <span className="text-sm text-gray-400">24H 자율 사이클</span>
             <button
               onClick={() => {
                 setAutoCycle(!autoCycle);
@@ -279,7 +279,7 @@ export default function VirtualOffice() {
           <button
             onClick={() => triggerMeeting('종합 비즈니스 매출 성과 & 1인 기업 확장 회의')}
             disabled={isMeeting}
-            className="px-4 py-2 bg-electric-violet hover:bg-violet-600 disabled:bg-gray-700 transition rounded-lg text-xs font-semibold flex items-center gap-1.5 shadow-[0_0_15px_rgba(139,92,246,0.4)]"
+            className="px-4 py-2 bg-electric-violet hover:bg-violet-600 disabled:bg-gray-700 transition rounded-lg text-sm font-semibold flex items-center gap-1.5 shadow-[0_0_15px_rgba(139,92,246,0.4)]"
           >
             <Play className="w-3.5 h-3.5" /> 미션 소집 (Dispatch)
           </button>
@@ -325,13 +325,13 @@ export default function VirtualOffice() {
                 }}
               >
                 {hasChatter && (
-                  <div className="absolute bottom-16 left-1/2 transform -translate-x-1/2 w-48 bg-obsidian-card border border-electric-cyan/40 px-3 py-2 rounded-xl text-[11px] leading-relaxed text-gray-200 shadow-[0_4px_20px_rgba(0,240,255,0.15)] z-30 after:content-[''] after:absolute after:top-full after:left-1/2 after:transform after:-translate-x-1/2 after:border-4 after:border-transparent after:border-t-obsidian-card">
+                  <div className="absolute bottom-16 left-1/2 transform -translate-x-1/2 w-48 bg-obsidian-card border border-electric-cyan/40 px-3 py-2 rounded-xl text-xs leading-relaxed text-gray-200 shadow-[0_4px_20px_rgba(0,240,255,0.15)] z-30 after:content-[''] after:absolute after:top-full after:left-1/2 after:transform after:-translate-x-1/2 after:border-4 after:border-transparent after:border-t-obsidian-card">
                     {activeChatter[agent.id]}
                   </div>
                 )}
 
                 <div className="flex flex-col items-center group cursor-pointer">
-                  <span className="text-[9px] bg-slate-900/90 text-gray-300 border border-slate-800 px-1.5 py-0.5 rounded-md mb-1 shadow font-mono max-w-[80px] truncate">
+                  <span className="text-[11px] bg-slate-900/90 text-gray-300 border border-slate-800 px-1.5 py-0.5 rounded-md mb-1 shadow font-mono max-w-[80px] truncate">
                     {agent.name}
                   </span>
 
@@ -368,18 +368,18 @@ export default function VirtualOffice() {
 
         {/* 회사 실시간 작동 로그 패널 */}
         <div className="w-80 bg-obsidian-card rounded-2xl border border-obsidian-border p-4 flex flex-col glass-panel max-h-[500px]">
-          <div className="flex items-center justify-between border-b border-obsidian-border pb-2.5 mb-3">
+          <div className="flex items-center justify-between border-b border-obsidian-border pb-2.5 mb-3 font-sans">
             <div className="flex items-center gap-1.5">
               <Sparkles className="w-4 h-4 text-electric-cyan" />
               <h3 className="text-sm font-bold text-gray-200">회사 라이브 활동 로그</h3>
             </div>
             
-            <span className="text-[8px] font-mono text-gray-400">
+            <span className="text-[10px] font-mono text-gray-400">
               {dbSync ? '🛢️ DB-First Active' : '임시 세션'}
             </span>
           </div>
 
-          <div className="flex-1 overflow-y-auto space-y-2.5 pr-1 font-mono text-[10px] leading-relaxed text-gray-300">
+          <div className="flex-1 overflow-y-auto space-y-2.5 pr-1 font-mono text-xs leading-relaxed text-gray-300">
             {statusLog.map((log, index) => {
               const isSystem = log.includes('[System]');
               const isDispatch = log.includes('DISPATCH');
@@ -400,7 +400,7 @@ export default function VirtualOffice() {
             })}
           </div>
 
-          <div className="mt-3 pt-2.5 border-t border-obsidian-border flex items-center justify-between text-[10px] text-gray-400">
+          <div className="mt-3 pt-2.5 border-t border-obsidian-border flex items-center justify-between text-xs text-gray-400 font-sans">
             <span className="flex items-center gap-1"><UserCheck className="w-3 h-3 text-emerald-500" /> 요원 9명 대기중</span>
             <span className="flex items-center gap-1"><ShieldAlert className="w-3 h-3 text-amber-500" /> 오프라인 모드</span>
           </div>

@@ -274,9 +274,13 @@ export default function ConnectionsPanel() {
     // B. 오프라인 회복 탄력성: 브라우저 직접 fetch fallback 시도 (백엔드가 꺼졌거나 프록시가 차단되었을 때)
     try {
       let pingUrl = `${llmUrl}/api/tags`;
-      if (llmType === 'lmstudio') pingUrl = `${llmUrl}/models`;
-      else if (llmType === 'llamacpp') pingUrl = `${llmUrl}/health`;
-      else if (llmType === 'vllm') pingUrl = `${llmUrl}/models`;
+      if (llmType === 'lmstudio' || llmType === 'vllm' || llmType === 'llamacpp') {
+        let cleanUrl = llmUrl.replace(/\/+$/, "");
+        if (!cleanUrl.endsWith("/v1")) {
+          cleanUrl = `${cleanUrl}/v1`;
+        }
+        pingUrl = `${cleanUrl}/models`;
+      }
 
       const res = await fetch(pingUrl);
       if (res.ok) {
@@ -284,10 +288,8 @@ export default function ConnectionsPanel() {
         let modelList: string[] = [];
         if (llmType === 'ollama') {
           modelList = data.models ? data.models.map((m: any) => m.name || m.model || '') : [];
-        } else if (llmType === 'lmstudio' || llmType === 'vllm') {
+        } else if (llmType === 'lmstudio' || llmType === 'vllm' || llmType === 'llamacpp') {
           modelList = data.data ? data.data.map((m: any) => m.id) : [];
-        } else if (llmType === 'llamacpp') {
-          modelList = ['llama.cpp-default-server'];
         }
 
         if (modelList.length > 0) {
@@ -333,14 +335,14 @@ export default function ConnectionsPanel() {
             <Settings className="w-5 h-5 text-electric-cyan" />
           </div>
           <div>
-            <h2 className="text-sm font-bold text-gray-200">외부 시스템 API 연결 제어판</h2>
-            <p className="text-[10px] text-gray-400 mt-0.5">
+            <h2 className="text-base font-bold text-gray-200">외부 시스템 API 연결 제어판</h2>
+            <p className="text-xs text-gray-400 mt-1">
               로컬 및 원격 AI 엔진 통신 설정 및 PostgreSQL 데이터베이스 지식망 영구 연동 관리
             </p>
           </div>
         </div>
 
-        <div className="flex items-center gap-1.5 font-mono text-[9px] font-bold">
+        <div className="flex items-center gap-1.5 font-mono text-[11px] font-bold">
           {backendSync === 'connected' ? (
             <span className="flex items-center gap-1 text-emerald-400 bg-emerald-950/40 border border-emerald-500/20 px-2.5 py-1 rounded-full animate-pulse">
               🛢️ PostgreSQL DB-First 활성 (오프라인 파일 완전 배제됨)
@@ -364,14 +366,14 @@ export default function ConnectionsPanel() {
 
           <div className="space-y-3 text-xs">
             <div className="flex flex-col gap-1">
-              <label className="text-[10px] text-gray-400">엔진 타입 선택</label>
+              <label className="text-xs text-gray-400">엔진 타입 선택</label>
               <div className="grid grid-cols-2 gap-2">
                 {['ollama', 'lmstudio', 'llamacpp', 'vllm'].map((type) => (
                   <button
                     key={type}
                     type="button"
                     onClick={() => handleEngineChange(type as LLMEngineType)}
-                    className={`py-1.5 rounded-lg border transition font-bold text-[11px] uppercase ${
+                    className={`py-2 rounded-lg border transition font-bold text-xs uppercase ${
                       llmType === type
                         ? 'bg-electric-cyan/10 border-electric-cyan text-electric-cyan'
                         : 'bg-obsidian/40 border-obsidian-border text-gray-400'
@@ -384,7 +386,7 @@ export default function ConnectionsPanel() {
             </div>
 
             <div className="flex flex-col gap-1">
-              <label className="text-[10px] text-gray-400">API 엔드포인트 URL 주소 (다른 기기 IP도 지원)</label>
+              <label className="text-xs text-gray-400">API 엔드포인트 URL 주소 (다른 기기 IP도 지원)</label>
               <input
                 type="text"
                 value={llmUrl}
@@ -399,13 +401,13 @@ export default function ConnectionsPanel() {
 
             <div className="flex flex-col gap-1 relative">
               <div className="flex justify-between items-center">
-                <label className="text-[10px] text-gray-400">사용할 모델 선택 (Model Name)</label>
+                <label className="text-xs text-gray-400">사용할 모델 선택 (Model Name)</label>
                 {availableModels.length > 0 ? (
-                  <span className="text-[8px] font-mono text-emerald-400 bg-emerald-950/40 border border-emerald-500/20 px-2 py-0.5 rounded-full animate-pulse flex items-center gap-1">
+                  <span className="text-[10px] font-mono text-emerald-400 bg-emerald-950/40 border border-emerald-500/20 px-2.5 py-0.5 rounded-full animate-pulse flex items-center gap-1">
                     ● 실시간 모델 {availableModels.length}개 감지됨
                   </span>
                 ) : (
-                  <span className="text-[8px] font-mono text-amber-400 bg-amber-950/40 border border-amber-500/20 px-2 py-0.5 rounded-full flex items-center gap-1">
+                  <span className="text-[10px] font-mono text-amber-400 bg-amber-950/40 border border-amber-500/20 px-2.5 py-0.5 rounded-full flex items-center gap-1">
                     ● 기본 권장 목록 (오프라인)
                   </span>
                 )}
@@ -469,17 +471,17 @@ export default function ConnectionsPanel() {
             <div className="flex items-center justify-between pt-2">
               <div className="flex items-center gap-1.5">
                 {pingStatus === 'success' && (
-                  <span className="flex items-center gap-1 text-[10px] text-emerald-400 font-mono font-bold">
+                  <span className="flex items-center gap-1 text-xs text-emerald-400 font-mono font-bold">
                     <CheckCircle className="w-3.5 h-3.5" /> 통신 연결 성공 ✅
                   </span>
                 )}
                 {pingStatus === 'failed' && (
-                  <span className="flex items-center gap-1 text-[10px] text-red-400 font-mono font-bold">
+                  <span className="flex items-center gap-1 text-xs text-red-400 font-mono font-bold">
                     <AlertTriangle className="w-3.5 h-3.5" /> 연결 실패 (시뮬레이션 모드 작동)
                   </span>
                 )}
-                {pingStatus === 'idle' && <span className="text-[10px] text-gray-400">핑 테스트 대기 중</span>}
-                {pingStatus === 'testing' && <span className="text-[10px] text-electric-cyan animate-pulse">패킷 전송 중...</span>}
+                {pingStatus === 'idle' && <span className="text-xs text-gray-400">핑 테스트 대기 중</span>}
+                {pingStatus === 'testing' && <span className="text-xs text-electric-cyan animate-pulse">패킷 전송 중...</span>}
               </div>
 
               <button
@@ -500,9 +502,9 @@ export default function ConnectionsPanel() {
             <h3 className="text-xs font-bold text-gray-200">비서 텔레그램 봇 모바일 브릿지</h3>
           </div>
 
-          <div className="space-y-3 text-xs font-sans">
+          <div className="space-y-3 text-sm font-sans">
             <div className="flex flex-col gap-1">
-              <label className="text-[10px] text-gray-400">Telegram Bot Token</label>
+              <label className="text-xs text-gray-400">Telegram Bot Token</label>
               <input
                 type="password"
                 value={teleToken}
@@ -515,7 +517,7 @@ export default function ConnectionsPanel() {
             </div>
 
             <div className="flex flex-col gap-1">
-              <label className="text-[10px] text-gray-400">자동 인식된 Chat ID</label>
+              <label className="text-xs text-gray-400">자동 인식된 Chat ID</label>
               <input
                 type="text"
                 value={chatId}
@@ -559,7 +561,7 @@ export default function ConnectionsPanel() {
             </h4>
             
             <div className="flex flex-col gap-1">
-              <label className="text-[9px] text-gray-400">지식 제목 (Title)</label>
+              <label className="text-xs text-gray-400">지식 제목 (Title)</label>
               <input
                 type="text"
                 required
@@ -571,7 +573,7 @@ export default function ConnectionsPanel() {
             </div>
 
             <div className="flex flex-col gap-1">
-              <label className="text-[9px] text-gray-400">지식 카테고리 (Category)</label>
+              <label className="text-xs text-gray-400">지식 카테고리 (Category)</label>
               <select
                 value={newDocCategory}
                 onChange={(e) => setNewDocCategory(e.target.value)}
@@ -584,7 +586,7 @@ export default function ConnectionsPanel() {
             </div>
 
             <div className="flex flex-col gap-1">
-              <label className="text-[9px] text-gray-400">마크다운 본문 내용 (Content)</label>
+              <label className="text-xs text-gray-400">마크다운 본문 내용 (Content)</label>
               <textarea
                 required
                 rows={4}
@@ -606,11 +608,11 @@ export default function ConnectionsPanel() {
 
           {/* 지식 리스트 보드 (오른쪽 3열) */}
           <div className="col-span-3 bg-obsidian/20 border border-slate-900 rounded-xl p-3 flex flex-col h-[340px]">
-            <span className="text-[10px] text-gray-400 font-bold mb-2">데이터베이스 활성 지식망 리스트</span>
+            <span className="text-xs text-gray-400 font-bold mb-2">데이터베이스 활성 지식망 리스트</span>
             
             <div className="flex-1 overflow-y-auto space-y-2 pr-1">
               {brainDocs.length === 0 ? (
-                <div className="h-full flex items-center justify-center text-gray-500 text-[10px] font-mono">
+                <div className="h-full flex items-center justify-center text-gray-500 text-xs font-mono">
                   [Empty] 현재 주입된 세컨브레인 지식이 없습니다.
                 </div>
               ) : (
@@ -621,7 +623,7 @@ export default function ConnectionsPanel() {
                   >
                     <div className="flex flex-col space-y-1">
                       <div className="flex items-center gap-1.5">
-                        <span className={`text-[8px] px-1.5 py-0.5 rounded border font-mono font-bold uppercase ${
+                        <span className={`text-[10px] px-1.5 py-0.5 rounded border font-mono font-bold uppercase ${
                           doc.category === 'Skills'
                             ? 'bg-emerald-950/40 border-emerald-500/20 text-emerald-400'
                             : doc.category === 'Decisions'
@@ -630,9 +632,9 @@ export default function ConnectionsPanel() {
                         }`}>
                           {doc.category}
                         </span>
-                        <span className="font-bold text-xs text-gray-200">{doc.title}</span>
+                        <span className="font-bold text-sm text-gray-200">{doc.title}</span>
                       </div>
-                      <p className="text-[10px] text-gray-400 leading-relaxed font-sans">{doc.content}</p>
+                      <p className="text-xs text-gray-400 leading-relaxed font-sans">{doc.content}</p>
                     </div>
 
                     <button

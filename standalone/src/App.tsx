@@ -22,8 +22,8 @@ export default function App() {
               <span className="text-xl">🏢</span>
             </div>
             <div className="flex flex-col">
-              <span className="text-sm font-extrabold tracking-widest text-white font-sans uppercase">Maru Company</span>
-              <span className="text-[9px] text-electric-cyan font-mono tracking-wider font-bold">STANDALONE V2.0</span>
+              <span className="text-base font-extrabold tracking-widest text-white font-sans uppercase">Maru Company</span>
+              <span className="text-[10.5px] text-electric-cyan font-mono tracking-wider font-bold">STANDALONE V2.0</span>
             </div>
           </div>
 
@@ -34,65 +34,65 @@ export default function App() {
           <nav className="space-y-1.5 font-sans">
             <button
               onClick={() => setActiveTab('office')}
-              className={`w-full flex items-center gap-3 px-3.5 py-3 rounded-xl text-xs font-bold transition duration-300 ${
+              className={`w-full flex items-center gap-3 px-3.5 py-3 rounded-xl text-sm font-bold transition duration-300 ${
                 activeTab === 'office'
                   ? 'bg-electric-cyan/10 border border-electric-cyan/30 text-electric-cyan shadow-[0_0_15px_rgba(0,240,255,0.1)]'
                   : 'border border-transparent hover:bg-slate-900/60 text-gray-400 hover:text-gray-200'
               }`}
             >
-              <Cpu className="w-4 h-4" />
+              <Cpu className="w-4.5 h-4.5" />
               <span>🏢 가상 사무실 (Office)</span>
             </button>
 
             <button
               onClick={() => setActiveTab('chat')}
-              className={`w-full flex items-center gap-3 px-3.5 py-3 rounded-xl text-xs font-bold transition duration-300 ${
+              className={`w-full flex items-center gap-3 px-3.5 py-3 rounded-xl text-sm font-bold transition duration-300 ${
                 activeTab === 'chat'
                   ? 'bg-electric-cyan/10 border border-electric-cyan/30 text-electric-cyan shadow-[0_0_15px_rgba(0,240,255,0.1)]'
                   : 'border border-transparent hover:bg-slate-900/60 text-gray-400 hover:text-gray-200'
               }`}
             >
-              <MessageSquare className="w-4 h-4" />
+              <MessageSquare className="w-4.5 h-4.5" />
               <span>💬 AI 전략 협업실 (Chat)</span>
             </button>
 
             <button
               onClick={() => setActiveTab('dashboard')}
-              className={`w-full flex items-center gap-3 px-3.5 py-3 rounded-xl text-xs font-bold transition duration-300 ${
+              className={`w-full flex items-center gap-3 px-3.5 py-3 rounded-xl text-sm font-bold transition duration-300 ${
                 activeTab === 'dashboard'
                   ? 'bg-electric-cyan/10 border border-electric-cyan/30 text-electric-cyan shadow-[0_0_15px_rgba(0,240,255,0.1)]'
                   : 'border border-transparent hover:bg-slate-900/60 text-gray-400 hover:text-gray-200'
               }`}
             >
-              <LineChart className="w-4 h-4" />
+              <LineChart className="w-4.5 h-4.5" />
               <span>💰 매출 대시보드 (Sales)</span>
             </button>
 
             <button
               onClick={() => setActiveTab('settings')}
-              className={`w-full flex items-center gap-3 px-3.5 py-3 rounded-xl text-xs font-bold transition duration-300 ${
+              className={`w-full flex items-center gap-3 px-3.5 py-3 rounded-xl text-sm font-bold transition duration-300 ${
                 activeTab === 'settings'
                   ? 'bg-electric-cyan/10 border border-electric-cyan/30 text-electric-cyan shadow-[0_0_15px_rgba(0,240,255,0.1)]'
                   : 'border border-transparent hover:bg-slate-900/60 text-gray-400 hover:text-gray-200'
               }`}
             >
-              <Sliders className="w-4 h-4" />
+              <Sliders className="w-4.5 h-4.5" />
               <span>⚙️ 외부 연결 설정 (Config)</span>
             </button>
           </nav>
         </div>
 
         {/* 하단 시스템 보안 요약 정보 */}
-        <div className="bg-obsidian/60 p-3 rounded-xl border border-obsidian-border text-[9px] font-mono leading-relaxed space-y-1">
+        <div className="bg-obsidian/60 p-3 rounded-xl border border-obsidian-border text-[11px] font-mono leading-relaxed space-y-1">
           <div className="flex items-center gap-1 text-gray-400">
-            <Terminal className="w-3 h-3 text-electric-cyan" />
+            <Terminal className="w-3.5 h-3.5 text-electric-cyan" />
             <span>Node: Local Inference</span>
           </div>
           <div className="flex items-center gap-1 text-gray-400">
-            <ShieldAlert className="w-3 h-3 text-emerald-500" />
+            <ShieldAlert className="w-3.5 h-3.5 text-emerald-500" />
             <span>Security: 100% Offline</span>
           </div>
-          <p className="text-gray-500 mt-1 pt-1 border-t border-slate-900 text-[8px] text-center select-none">
+          <p className="text-gray-500 mt-1 pt-1 border-t border-slate-900 text-[10px] text-center select-none font-sans">
             Designed for Antigravity & A.U
           </p>
         </div>

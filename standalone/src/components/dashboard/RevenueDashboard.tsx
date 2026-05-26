@@ -140,15 +140,15 @@ export default function RevenueDashboard() {
     <div className="flex flex-col h-full space-y-4 p-4 overflow-y-auto relative select-none">
       
       {/* 4대 핵심 KPI 카드 그리드 */}
-      <div className="grid grid-cols-4 gap-4">
+      <div className="grid grid-cols-4 gap-4 font-sans">
         {/* 총 매출 */}
         <div className="bg-obsidian-card p-4 rounded-xl border border-obsidian-border flex items-center justify-between glass-panel relative overflow-hidden group hover:border-electric-cyan/30 transition-all duration-300">
           <div className="space-y-1">
-            <span className="text-[10px] text-gray-400 font-mono tracking-wider">TOTAL REVENUE (PayPal)</span>
-            <div className="text-xl font-extrabold text-electric-cyan font-mono flex items-baseline">
+            <span className="text-xs text-gray-400 font-mono tracking-wider">TOTAL REVENUE (PayPal)</span>
+            <div className="text-2xl font-extrabold text-electric-cyan font-mono flex items-baseline">
               ${revenue.toLocaleString()}
             </div>
-            <span className="text-[8px] text-emerald-400 font-mono flex items-center gap-0.5">
+            <span className="text-[10px] text-emerald-400 font-mono flex items-center gap-0.5">
               <ArrowUpRight className="w-2.5 h-2.5" /> +14.2% 이번 주
             </span>
           </div>
@@ -160,11 +160,11 @@ export default function RevenueDashboard() {
         {/* 라이브 주문 수 */}
         <div className="bg-obsidian-card p-4 rounded-xl border border-obsidian-border flex items-center justify-between glass-panel relative overflow-hidden group hover:border-electric-violet/30 transition-all duration-300">
           <div className="space-y-1">
-            <span className="text-[10px] text-gray-400 font-mono tracking-wider">LIVE ORDERS</span>
-            <div className="text-xl font-extrabold text-electric-violet font-mono flex items-baseline">
+            <span className="text-xs text-gray-400 font-mono tracking-wider">LIVE ORDERS</span>
+            <div className="text-2xl font-extrabold text-electric-violet font-mono flex items-baseline">
               {orders}건
             </div>
-            <span className="text-[8px] text-emerald-400 font-mono flex items-center gap-0.5">
+            <span className="text-[10px] text-emerald-400 font-mono flex items-center gap-0.5">
               <ArrowUpRight className="w-2.5 h-2.5" /> +4건 신규 유입
             </span>
           </div>
@@ -176,11 +176,11 @@ export default function RevenueDashboard() {
         {/* 평균 주문 가격 */}
         <div className="bg-obsidian-card p-4 rounded-xl border border-obsidian-border flex items-center justify-between glass-panel relative overflow-hidden group hover:border-emerald-500/30 transition-all duration-300">
           <div className="space-y-1">
-            <span className="text-[10px] text-gray-400 font-mono tracking-wider">AVG ORDER VALUE</span>
-            <div className="text-xl font-extrabold text-emerald-400 font-mono flex items-baseline">
+            <span className="text-xs text-gray-400 font-mono tracking-wider">AVG ORDER VALUE</span>
+            <div className="text-2xl font-extrabold text-emerald-400 font-mono flex items-baseline">
               ${aov.toFixed(2)}
             </div>
-            <span className="text-[8px] text-gray-400 font-mono">
+            <span className="text-[10px] text-gray-400 font-mono">
               글로벌 PayPal 결제 통계 기준
             </span>
           </div>
@@ -192,11 +192,11 @@ export default function RevenueDashboard() {
         {/* 도구 자율 레벨 */}
         <div className="bg-obsidian-card p-4 rounded-xl border border-obsidian-border flex items-center justify-between glass-panel relative overflow-hidden group hover:border-amber-500/30 transition-all duration-300">
           <div className="space-y-1">
-            <span className="text-[10px] text-gray-400 font-mono tracking-wider">AGENT AUTONOMY</span>
-            <div className="text-xl font-extrabold text-amber-500 font-mono flex items-baseline">
+            <span className="text-xs text-gray-400 font-mono tracking-wider">AGENT AUTONOMY</span>
+            <div className="text-2xl font-extrabold text-amber-500 font-mono flex items-baseline">
               {autonomy}%
             </div>
-            <span className="text-[8px] text-emerald-400 font-mono">
+            <span className="text-[10px] text-emerald-400 font-mono">
               안전(Safe) 권한 해제 레벨
             </span>
           </div>
@@ -311,30 +311,30 @@ export default function RevenueDashboard() {
             실시간 PayPal IPN 결제 승인 리스트
           </h3>
           
-          <span className="text-[9px] font-mono font-bold text-gray-400">
+          <span className="text-[11px] font-mono font-bold text-gray-400">
             {dbSync ? '🛢️ PostgreSQL DB 영구 저장 가동중' : '임시 결제 세션 작동중'}
           </span>
         </div>
 
-        <div className="space-y-2 font-mono text-[10px]">
+        <div className="space-y-2 font-mono text-xs">
           {transactions.map((txn) => (
             <div
               key={txn.id}
               className="bg-obsidian/40 border border-slate-900 rounded-xl px-4 py-3 flex justify-between items-center hover:bg-obsidian/75 hover:border-slate-800 transition duration-200"
             >
               <div className="flex items-center gap-3">
-                <span className="text-emerald-500 font-bold bg-emerald-950/30 border border-emerald-500/20 px-2 py-0.5 rounded">
+                <span className="text-emerald-500 font-bold bg-emerald-950/30 border border-emerald-500/20 px-2 py-0.5 rounded text-[10px]">
                   💰 SECURE
                 </span>
                 <div className="flex flex-col">
-                  <span className="font-bold text-gray-300">{txn.item}</span>
-                  <span className="text-[8px] text-gray-500 mt-0.5">{txn.id} · {txn.time}</span>
+                  <span className="font-bold text-gray-300 text-sm">{txn.item}</span>
+                  <span className="text-[10px] text-gray-500 mt-0.5">{txn.id} · {txn.time}</span>
                 </div>
               </div>
 
               <div className="flex items-center gap-3">
-                <span className="font-extrabold text-electric-cyan">${txn.amount.toFixed(2)}</span>
-                <span className="px-2 py-0.5 rounded bg-emerald-950/40 border border-emerald-500/20 text-[8px] text-emerald-400 font-bold uppercase">
+                <span className="font-extrabold text-electric-cyan text-base">${txn.amount.toFixed(2)}</span>
+                <span className="px-2 py-0.5 rounded bg-emerald-950/40 border border-emerald-500/20 text-[10px] text-emerald-400 font-bold uppercase">
                   {txn.status}
                 </span>
               </div>
