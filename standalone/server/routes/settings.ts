@@ -90,10 +90,11 @@ settingsRouter.post('/proxy/models', async (c) => {
       const data = await response.json();
       let models: string[] = [];
 
-      if (llm_type === 'ollama') {
-        models = data.models ? data.models.map((m: any) => m.name || m.model || '') : [];
-      } else if (llm_type === 'lmstudio' || llm_type === 'vllm' || llm_type === 'llamacpp') {
-        models = data.data ? data.data.map((m: any) => m.id) : [];
+      // 마스터님의 실제 llama.cpp 응답 데이터 기반 초정밀 하이브리드 모델 스캔 알고리즘 적용
+      if (data.data && Array.isArray(data.data) && data.data.length > 0) {
+        models = data.data.map((m: any) => m.id || m.name || '');
+      } else if (data.models && Array.isArray(data.models) && data.models.length > 0) {
+        models = data.models.map((m: any) => m.name || m.model || '');
       }
 
       return c.json({ success: true, models });

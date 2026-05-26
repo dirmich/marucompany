@@ -286,10 +286,11 @@ export default function ConnectionsPanel() {
       if (res.ok) {
         const data = await res.json();
         let modelList: string[] = [];
-        if (llmType === 'ollama') {
-          modelList = data.models ? data.models.map((m: any) => m.name || m.model || '') : [];
-        } else if (llmType === 'lmstudio' || llmType === 'vllm' || llmType === 'llamacpp') {
-          modelList = data.data ? data.data.map((m: any) => m.id) : [];
+        // 마스터님의 실제 llama.cpp 응답 데이터 기반 초정밀 하이브리드 모델 스캔 알고리즘 적용
+        if (data.data && Array.isArray(data.data) && data.data.length > 0) {
+          modelList = data.data.map((m: any) => m.id || m.name || '');
+        } else if (data.models && Array.isArray(data.models) && data.models.length > 0) {
+          modelList = data.models.map((m: any) => m.name || m.model || '');
         }
 
         if (modelList.length > 0) {

@@ -1,5 +1,6 @@
-fix: llama.cpp 역시 OpenAI v1/models 규격으로 단일 대통합 및 리팩토링
+fix: 실제 llama.cpp 응답에 맞춘 초정밀 하이브리드 모델 스캐너 파서 완성 및 대통합
 
-- 최신 llama.cpp 서버(llama-server)의 OpenAI 호환 규격을 반영하여 /v1/models 엔드포인트 단일 대통합 (routes/settings.ts, ConnectionsPanel.tsx, CooperativeChat.tsx)
-- 불필요하고 복잡한 /props 독자 파싱 로직을 걷어내고, OpenAI 표준 data.data.map(m.id) 형태로 LM Studio, vLLM, llama.cpp 파싱 완벽 일원화
-- 전체 UI 폰트 크기 대폭 상향 리팩토링 검증 및 tsc 타입 컴파일 / Vite 빌드 완료
+- 마스터님이 제공하신 실제 llama.cpp /v1/models 응답 JSON 구조를 완벽 분석 이식
+- data 배열(OpenAI 규격) 및 models 배열(하이브리드 규격)을 다단계로 완전 감지해 백발백중으로 gemma4mtp 등의 모델명을 수집하는 초정밀 하이브리드 파싱 알고리즘 설계 탑재
+- Hono 백엔드 프록시(routes/settings.ts) 및 React 다이렉트 핑 fallback(ConnectionsPanel.tsx) 일괄 보강 완료
+- tsc 컴파일 및 Vite 프로덕션 빌드 무결성 확인 및 Git 동기화 완수
