@@ -1,25 +1,83 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Settings, Plug, Key, Database, RefreshCcw, CheckCircle, AlertTriangle } from 'lucide-react';
 
+export type LLMEngineType = 'ollama' | 'lmstudio' | 'llamacpp' | 'vllm';
+
 export default function ConnectionsPanel() {
-  const [llmType, setLlmType] = useState<'ollama' | 'lmstudio'>('ollama');
-  const [llmUrl, setLlmUrl] = useState('http://127.0.0.1:11434');
+  // localStorage 연동 초기화
+  const [llmType, setLlmType] = useState<LLMEngineType>(() => {
+    return (localStorage.getItem('connect-ai-llm-type') as LLMEngineType) || 'ollama';
+  });
+  
+  const [llmUrl, setLlmUrl] = useState(() => {
+    return localStorage.getItem('connect-ai-llm-url') || 'http://127.0.0.1:11434';
+  });
+
+  const [llmModel, setLlmModel] = useState(() => {
+    return localStorage.getItem('connect-ai-llm-model') || '';
+  });
+
   const [pingStatus, setPingStatus] = useState<'idle' | 'testing' | 'success' | 'failed'>('idle');
   
   const [teleToken, setTeleToken] = useState('123456789:AAEx-MockSecretaryBotToken12345');
   const [chatId, setChatId] = useState('987654321');
   const [teleTesting, setTeleTesting] = useState(false);
-  const [teleStatus, setTeleStatus] = useState<'connected' | 'disconnected'>('connected');
 
   const [calendarLinked, setCalendarLinked] = useState(true);
   const [brainPath, setBrainPath] = useState('~/.connect-ai-brain');
 
+  // 설정값 변경 시 localStorage 동기화
+  useEffect(() => {
+    localStorage.setItem('connect-ai-llm-type', llmType);
+  }, [llmType]);
+
+  useEffect(() => {
+    localStorage.setItem('connect-ai-llm-url', llmUrl);
+  }, [llmUrl]);
+
+  useEffect(() => {
+    localStorage.setItem('connect-ai-llm-model', llmModel);
+  }, [llmModel]);
+
+  const handleEngineChange = (type: LLMEngineType) => {
+    setLlmType(type);
+    let defaultUrl = 'http://127.0.0.1:11434';
+    let defaultModel = '';
+    
+    if (type === 'lmstudio') {
+      defaultUrl = 'http://127.0.0.1:1234/v1';
+      defaultModel = 'qwen2.5-coder-7b';
+    } else if (type === 'llamacpp') {
+      defaultUrl = 'http://127.0.0.1:8080';
+      defaultModel = 'llama-3';
+    } else if (type === 'vllm') {
+      defaultUrl = 'http://127.0.0.1:8000/v1';
+      defaultModel = 'meta-llama/Meta-Llama-3-8B-Instruct';
+    } else if (type === 'ollama') {
+      defaultUrl = 'http://127.0.0.1:11434';
+      defaultModel = 'gemma:2b';
+    }
+
+    setLlmUrl(defaultUrl);
+    setLlmModel(defaultModel);
+    setPingStatus('idle');
+  };
+
   const testLlmPing = async () => {
     setPingStatus('testing');
-    await new Promise((resolve) => setTimeout(resolve, 1500));
+    await new Promise((resolve) => setTimeout(resolve, 1200));
     
     try {
-      const pingUrl = llmType === 'ollama' ? `${llmUrl}/api/tags` : `${llmUrl}/models`;
+      let pingUrl = `${llmUrl}/api/tags`; // ollama default
+      
+      if (llmType === 'lmstudio') {
+        pingUrl = `${llmUrl}/models`;
+      } else if (llmType === 'llamacpp') {
+        pingUrl = `${llmUrl}/health`;
+      } else if (llmType === 'vllm') {
+        pingUrl = `${llmUrl}/models`;
+      }
+
       const res = await fetch(pingUrl);
       if (res.ok) {
         setPingStatus('success');
@@ -27,7 +85,7 @@ export default function ConnectionsPanel() {
         setPingStatus('failed');
       }
     } catch {
-      setPingStatus('failed'); // 로컬 AI 미구동 시 실패
+      setPingStatus('failed'); // 타 기기 등 오프라인/통신 실패 시
     }
   };
 
@@ -49,7 +107,7 @@ export default function ConnectionsPanel() {
         <div>
           <h2 className="text-sm font-bold text-gray-200">외부 시스템 API 연결 제어판</h2>
           <p className="text-[10px] text-gray-400 mt-0.5">
-            로컬 인공지능(LLM) 커넥션 진단 및 텔레그램, 구글 캘린더, 로컬 지식 리포지토리 연동 관리
+            로컬 및 외부 기기 인공지능(LLM) 커넥션 진단 및 텔레그램, 구글 캘린더, 로컬 지식 리포지토리 연동 관리
           </p>
         </div>
       </div>
@@ -57,32 +115,32 @@ export default function ConnectionsPanel() {
       {/* 설정 그리드 */}
       <div className="grid grid-cols-2 gap-4">
         
-        {/* 1. 로컬 LLM 통신 진단 */}
+        {/* 1. 로컬 및 다른 기기 LLM 통신 진단 */}
         <div className="bg-obsidian-card p-4 rounded-2xl border border-obsidian-border glass-panel flex flex-col space-y-4">
           <div className="flex items-center gap-1.5 border-b border-obsidian-border pb-2">
             <Plug className="w-4 h-4 text-electric-cyan" />
-            <h3 className="text-xs font-bold text-gray-200">로컬 인공지능 엔진 (Ollama / LM Studio)</h3>
+            <h3 className="text-xs font-bold text-gray-200">로컬 및 외부 LLM 엔진 연결 (Ollama / Llama.cpp / vLLM 등)</h3>
           </div>
 
           <div className="space-y-3 text-xs">
             <div className="flex flex-col gap-1">
               <label className="text-[10px] text-gray-400">엔진 타입 선택</label>
-              <div className="flex gap-2">
+              <div className="grid grid-cols-2 gap-2">
                 <button
                   type="button"
-                  onClick={() => { setLlmType('ollama'); setLlmUrl('http://127.0.0.1:11434'); }}
-                  className={`flex-1 py-1.5 rounded-lg border transition font-bold ${
+                  onClick={() => handleEngineChange('ollama')}
+                  className={`py-1.5 rounded-lg border transition font-bold text-[11px] ${
                     llmType === 'ollama'
                       ? 'bg-electric-cyan/10 border-electric-cyan text-electric-cyan'
                       : 'bg-obsidian/40 border-obsidian-border text-gray-400'
                   }`}
                 >
-                  Ollama (Brew/로컬)
+                  Ollama
                 </button>
                 <button
                   type="button"
-                  onClick={() => { setLlmType('lmstudio'); setLlmUrl('http://127.0.0.1:1234/v1'); }}
-                  className={`flex-1 py-1.5 rounded-lg border transition font-bold ${
+                  onClick={() => handleEngineChange('lmstudio')}
+                  className={`py-1.5 rounded-lg border transition font-bold text-[11px] ${
                     llmType === 'lmstudio'
                       ? 'bg-electric-cyan/10 border-electric-cyan text-electric-cyan'
                       : 'bg-obsidian/40 border-obsidian-border text-gray-400'
@@ -90,15 +148,49 @@ export default function ConnectionsPanel() {
                 >
                   LM Studio
                 </button>
+                <button
+                  type="button"
+                  onClick={() => handleEngineChange('llamacpp')}
+                  className={`py-1.5 rounded-lg border transition font-bold text-[11px] ${
+                    llmType === 'llamacpp'
+                      ? 'bg-electric-cyan/10 border-electric-cyan text-electric-cyan'
+                      : 'bg-obsidian/40 border-obsidian-border text-gray-400'
+                  }`}
+                >
+                  llama.cpp
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleEngineChange('vllm')}
+                  className={`py-1.5 rounded-lg border transition font-bold text-[11px] ${
+                    llmType === 'vllm'
+                      ? 'bg-electric-cyan/10 border-electric-cyan text-electric-cyan'
+                      : 'bg-obsidian/40 border-obsidian-border text-gray-400'
+                  }`}
+                >
+                  vLLM (OpenAI API)
+                </button>
               </div>
             </div>
 
             <div className="flex flex-col gap-1">
-              <label className="text-[10px] text-gray-400">API 엔드포인트 URL 주소</label>
+              <label className="text-[10px] text-gray-400">API 엔드포인트 URL 주소 (다른 기기 IP도 가능)</label>
               <input
                 type="text"
                 value={llmUrl}
                 onChange={(e) => setLlmUrl(e.target.value)}
+                placeholder="예: http://192.168.1.100:11434"
+                className="bg-obsidian border border-obsidian-border rounded-lg px-3 py-2 text-gray-200 focus:outline-none focus:border-electric-cyan font-mono"
+              />
+            </div>
+
+            <div className="flex flex-col gap-1">
+              <label className="text-[10px] text-gray-400">사용할 모델 이름 (Model Name)</label>
+              <input
+                type="text"
+                value={llmModel}
+                onChange={(e) => setLlmModel(e.target.value)}
+                placeholder="비우면 기본 지정 모델 사용"
                 className="bg-obsidian border border-obsidian-border rounded-lg px-3 py-2 text-gray-200 focus:outline-none focus:border-electric-cyan font-mono"
               />
             </div>
@@ -112,14 +204,14 @@ export default function ConnectionsPanel() {
                 )}
                 {pingStatus === 'failed' && (
                   <span className="flex items-center gap-1 text-[10px] text-red-400 font-mono font-bold">
-                    <AlertTriangle className="w-3.5 h-3.5" /> 연결 실패 (오프라인 시뮬레이션 적용)
+                    <AlertTriangle className="w-3.5 h-3.5" /> 연결 실패 (시뮬레이션 모드 작동)
                   </span>
                 )}
                 {pingStatus === 'idle' && (
-                  <span className="text-[10px] text-gray-400">핑 테스트를 대기 중입니다.</span>
+                  <span className="text-[10px] text-gray-400">핑 테스트 대기 중</span>
                 )}
                 {pingStatus === 'testing' && (
-                  <span className="text-[10px] text-electric-cyan animate-pulse">상태 패킷 전송 중...</span>
+                  <span className="text-[10px] text-electric-cyan animate-pulse">패킷 전송 중...</span>
                 )}
               </div>
 
@@ -169,7 +261,6 @@ export default function ConnectionsPanel() {
 
               <button
                 onClick={testTelegram}
-                disabled={teleTesting}
                 className="px-3 py-1.5 bg-electric-violet text-white font-bold rounded-lg hover:bg-violet-600 transition flex items-center gap-1 shrink-0 shadow-[0_0_10px_rgba(139,92,246,0.3)]"
               >
                 테스트 노티 발송 📨

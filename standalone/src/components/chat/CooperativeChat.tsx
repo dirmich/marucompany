@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Send, Terminal, Shield, ArrowRight, Zap, RefreshCw } from 'lucide-react';
+import { Send, Terminal, Zap, RefreshCw } from 'lucide-react';
+import { LLMEngineType } from '../settings/ConnectionsPanel';
 
 interface ChatMessage {
   id: string;
@@ -24,14 +25,14 @@ export default function CooperativeChat() {
       id: 'init-1',
       sender: 'ceo',
       senderName: 'Jay (CEO)',
-      text: '안녕하세요, 마스터님! Connect AI 자율 가상 오피스에 오신 것을 환영합니다. 무엇을 지시하시겠습니까?\n\n💡 추천 명령:\n1. "코다리야 병아리 다마고치 게임 만들어줘"\n2. "이번 달 PayPal 실시간 매출 실적 분석해줘"\n3. "내 유튜브 채널 홍보를 위한 자율 에이전트 소집해줘"',
+      text: '안녕하세요, 마스터님! Connect AI 자율 가상 오피스에 오신 것을 환영합니다. 무엇을 지시하시겠습니까?\n\n현재 로컬 및 외부 기기(Ollama, LM Studio, Llama.cpp, vLLM) 연동 포맷이 활성화되어 실제 인공지능 서버 통신을 시도합니다.\n\n💡 추천 명령:\n1. "코다리야 병아리 다마고치 게임 만들어줘"\n2. "이번 달 PayPal 실시간 매출 실적 분석해줘"\n3. "내 유튜브 채널 홍보를 위한 자율 에이전트 소집해줘"',
       timestamp: new Date().toLocaleTimeString(),
     },
   ]);
   const [inputText, setInputText] = useState('');
   const [isProcessing, setIsProcessing] = useState(false);
   const [dispatchSteps, setDispatchSteps] = useState<DispatchStep[]>([]);
-  const [ollamaConnected, setOllamaConnected] = useState<boolean | null>(null);
+  const [engineConnected, setEngineConnected] = useState<boolean | null>(null);
   const [showGameDemo, setShowGameDemo] = useState<boolean>(false);
   
   // 다마고치 게임 상태 시뮬레이션용
@@ -43,18 +44,34 @@ export default function CooperativeChat() {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
-  // 로컬 LLM 핑 테스트
+  // 주기적으로 localStorage 기반 API Ping 체크
   useEffect(() => {
-    const checkLLM = async () => {
+    const checkLLMConnection = async () => {
+      const type = (localStorage.getItem('connect-ai-llm-type') as LLMEngineType) || 'ollama';
+      const url = localStorage.getItem('connect-ai-llm-url') || 'http://127.0.0.1:11434';
+      
       try {
-        const res = await fetch('http://127.0.0.1:11434/api/tags');
-        if (res.ok) setOllamaConnected(true);
-        else setOllamaConnected(false);
+        let pingUrl = `${url}/api/tags`; // ollama default
+        
+        if (type === 'lmstudio') {
+          pingUrl = `${url}/models`;
+        } else if (type === 'llamacpp') {
+          pingUrl = `${url}/health`;
+        } else if (type === 'vllm') {
+          pingUrl = `${url}/models`;
+        }
+
+        const res = await fetch(pingUrl);
+        if (res.ok) setEngineConnected(true);
+        else setEngineConnected(false);
       } catch {
-        setOllamaConnected(false);
+        setEngineConnected(false);
       }
     };
-    checkLLM();
+
+    checkLLMConnection();
+    const interval = setInterval(checkLLMConnection, 10000); // 10초마다 상태 리프레시
+    return () => clearInterval(interval);
   }, []);
 
   const handleSend = async (e: React.FormEvent) => {
@@ -89,50 +106,89 @@ export default function CooperativeChat() {
       { id: 4, agentName: '레오 (마케팅)', agentEmoji: '📺', task: '유튜브 채널 트렌드 분석 및 프로모션 카드 작성', status: 'pending' },
     ]);
 
-    await new Promise((resolve) => setTimeout(resolve, 1500));
+    await new Promise((resolve) => setTimeout(resolve, 1200));
     setDispatchSteps((prev) =>
       prev.map((step) =>
         step.id === 1 ? { ...step, status: 'done' } : step.id === 2 ? { ...step, status: 'processing' } : step
       )
     );
 
-    // 4. 로컬 LLM 통신 시도 또는 지능형 시뮬레이션
-    if (ollamaConnected) {
+    // 4. 로컬 및 외부 기기 AI API 통신 분기 기동
+    const currentType = (localStorage.getItem('connect-ai-llm-type') as LLMEngineType) || 'ollama';
+    const currentUrl = localStorage.getItem('connect-ai-llm-url') || 'http://127.0.0.1:11434';
+    const currentModel = localStorage.getItem('connect-ai-llm-model') || '';
+
+    const systemPrompt = `너는 1인 기업 AI 에이전트 팀의 대표이사 CEO Jay다. 사장님의 다음 지시사항에 정중하게 솔로프레너 마인드로 답해라: "${userText}"`;
+
+    if (engineConnected) {
       try {
-        const response = await fetch('http://127.0.0.1:11434/api/generate', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            model: 'gemma:2b', // 기본 탑재 모델 추정
-            prompt: `너는 1인 기업 AI 에이전트 팀의 대표이사 CEO Jay다. 사장님의 다음 질문에 성실히 로컬 오프라인 모드로 답해라: "${userText}"`,
-            stream: false,
-          }),
-        });
-        const data = await response.json();
-        
-        setMessages((prev) => [
-          ...prev,
-          {
-            id: `ceo-${Date.now()}`,
-            sender: 'ceo',
-            senderName: 'Jay (CEO)',
-            text: data.response,
-            timestamp: new Date().toLocaleTimeString(),
-          },
-        ]);
-        setDispatchSteps((prev) => prev.map((step) => ({ ...step, status: 'done' })));
-        setIsProcessing(false);
-        return;
+        let aiResponseText = '';
+
+        if (currentType === 'ollama') {
+          const res = await fetch(`${currentUrl}/api/generate`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              model: currentModel || 'gemma:2b',
+              prompt: systemPrompt,
+              stream: false,
+            }),
+          });
+          const data = await res.json();
+          aiResponseText = data.response;
+
+        } else if (currentType === 'lmstudio' || currentType === 'vllm') {
+          // OpenAI 호환 엔드포인트
+          const res = await fetch(`${currentUrl}/chat/completions`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              model: currentModel || 'meta-llama/Meta-Llama-3-8B-Instruct',
+              messages: [{ role: 'user', content: systemPrompt }],
+              stream: false,
+            }),
+          });
+          const data = await res.json();
+          aiResponseText = data.choices[0].message.content;
+
+        } else if (currentType === 'llamacpp') {
+          const res = await fetch(`${currentUrl}/completion`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              prompt: systemPrompt,
+              n_predict: 384,
+            }),
+          });
+          const data = await res.json();
+          aiResponseText = data.content;
+        }
+
+        if (aiResponseText) {
+          setMessages((prev) => [
+            ...prev,
+            {
+              id: `ceo-${Date.now()}`,
+              sender: 'ceo',
+              senderName: 'Jay (CEO)',
+              text: aiResponseText,
+              timestamp: new Date().toLocaleTimeString(),
+            },
+          ]);
+          setDispatchSteps((prev) => prev.map((step) => ({ ...step, status: 'done' })));
+          setIsProcessing(false);
+          return;
+        }
+
       } catch (err) {
-        console.log('Ollama 통신 실패, 시뮬레이션 모드로 전환합니다.');
+        console.error('LLM API 통신 장애로 인하여 시뮬레이션 모드로 리디렉션합니다.', err);
       }
     }
 
-    // 5. Intelligent Mock Simulator (핵심 데모 경험 제공)
+    // 5. Intelligent Simulator Fallback (실제 기기가 오프라인이거나 통신 장애 시)
     const normalizedText = userText.toLowerCase();
 
     if (normalizedText.includes('게임') || normalizedText.includes('다마고치') || normalizedText.includes('코다리')) {
-      // 다마고치 게임 생성 시나리오
       await new Promise((resolve) => setTimeout(resolve, 2000));
       setDispatchSteps((prev) =>
         prev.map((step) =>
@@ -148,15 +204,12 @@ export default function CooperativeChat() {
         timestamp: new Date().toLocaleTimeString(),
       };
       setMessages((prev) => [...prev, devMsg]);
-
-      // 브라우저 팝업/게임 데모 시각화
       setShowGameDemo(true);
 
       await new Promise((resolve) => setTimeout(resolve, 1500));
       setDispatchSteps((prev) => prev.map((step) => ({ ...step, status: 'done' })));
 
     } else if (normalizedText.includes('매출') || normalizedText.includes('실적') || normalizedText.includes('paypal')) {
-      // 매출 대시보드 브리핑 시나리오
       await new Promise((resolve) => setTimeout(resolve, 2000));
       setDispatchSteps((prev) =>
         prev.map((step) =>
@@ -177,15 +230,16 @@ export default function CooperativeChat() {
       setDispatchSteps((prev) => prev.map((step) => ({ ...step, status: 'done' })));
 
     } else {
-      // 일반 대화 시나리오
       await new Promise((resolve) => setTimeout(resolve, 2000));
       setDispatchSteps((prev) => prev.map((step) => ({ ...step, status: 'done' })));
 
+      const engineLabel = currentType === 'ollama' ? 'Ollama' : currentType === 'lmstudio' ? 'LM Studio' : currentType === 'llamacpp' ? 'llama.cpp' : 'vLLM';
+      
       const ceoMsg: ChatMessage = {
         id: `ceo-${Date.now()}`,
         sender: 'ceo',
         senderName: 'Jay (CEO)',
-        text: `대표이사 Jay입니다. "${userText}" 지시사항을 잘 확인했습니다. \n\n이 프로젝트는 100% 로컬 프라이버시가 확보된 상태로 나만의 두뇌(.md 파일 위키)와 9명의 에이전트가 협업해 마스터님의 1인 기업 비즈니스 생산성을 폭발적으로 극대화시킵니다. 원하시는 서비스 템플릿(Kit) 개발이나 PayPal 매출 연동을 언제든 말씀만 해주세요!`,
+        text: `대표이사 Jay입니다. "${userText}" 지시사항을 잘 확인했습니다. \n\n[엔진 상태: ${engineLabel} 오프라인 시뮬레이션]\n\n이 프로젝트는 100% 로컬 프라이버시가 확보된 상태로 나만의 두뇌(.md 파일 위키)와 9명의 에이전트가 협업해 마스터님의 1인 기업 비즈니스 생산성을 폭발적으로 극대화시킵니다. 원하시는 서비스 템플릿(Kit) 개발이나 PayPal 매출 연동을 언제든 말씀만 해주세요!`,
         timestamp: new Date().toLocaleTimeString(),
       };
       setMessages((prev) => [...prev, ceoMsg]);
@@ -211,14 +265,14 @@ export default function CooperativeChat() {
             <span className="text-xs font-mono font-bold tracking-wider text-gray-200">CORPORATE CHAT</span>
           </div>
 
-          <div className="flex items-center gap-1.5">
-            {ollamaConnected ? (
-              <span className="flex items-center gap-1 text-[10px] text-emerald-400 bg-emerald-950/40 border border-emerald-500/20 px-2 py-0.5 rounded-full font-mono">
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-ping" /> Ollama 연결됨
+          <div className="flex items-center gap-1.5 font-mono text-[9px] font-bold">
+            {engineConnected ? (
+              <span className="flex items-center gap-1 text-emerald-400 bg-emerald-950/40 border border-emerald-500/20 px-2 py-0.5 rounded-full">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-ping" /> AI API 연동 활성화
               </span>
             ) : (
-              <span className="flex items-center gap-1 text-[10px] text-amber-400 bg-amber-950/40 border border-amber-500/20 px-2 py-0.5 rounded-full font-mono">
-                <span className="w-1.5 h-1.5 rounded-full bg-amber-500" /> 시뮬레이션 모드 (로컬 LLM 미감지)
+              <span className="flex items-center gap-1 text-amber-400 bg-amber-950/40 border border-amber-500/20 px-2 py-0.5 rounded-full font-sans">
+                ⚠️ 외부 AI 오프라인 (시뮬레이션 모드)
               </span>
             )}
           </div>
@@ -233,7 +287,6 @@ export default function CooperativeChat() {
                 key={msg.id}
                 className={`flex gap-3 max-w-[80%] ${isUser ? 'ml-auto flex-row-reverse' : 'mr-auto'}`}
               >
-                {/* 프로필 이미지 대신 이모지 */}
                 <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 border ${
                   isUser ? 'bg-slate-800 border-slate-700' : 'bg-slate-900 border-electric-cyan/20'
                 }`}>
@@ -328,7 +381,7 @@ export default function CooperativeChat() {
           </div>
         )}
 
-        {/* 🐤 다마고치 게임 데모 (코다리가 빌드해 준 실물 시네마틱 팝업) */}
+        {/* 🐤 다마고치 게임 데모 */}
         {showGameDemo && (
           <div className="bg-slate-900 rounded-2xl border-2 border-emerald-500/40 p-4 flex flex-col items-center glass-panel-neon animate-pulse">
             <div className="flex items-center gap-1.5 w-full border-b border-emerald-500/20 pb-2 mb-3">
@@ -338,14 +391,12 @@ export default function CooperativeChat() {
               </h3>
             </div>
 
-            {/* 다마고치 캐릭터 뷰 */}
             <div className="w-20 h-20 bg-slate-950 rounded-full border border-emerald-500/30 flex items-center justify-center relative mb-4">
               <span className="text-4xl animate-bounce">
                 {tamagotchi.hunger < 20 || tamagotchi.play < 20 ? '😭' : tamagotchi.sleep < 20 ? '😴' : '🐤'}
               </span>
             </div>
 
-            {/* 게이지 바 */}
             <div className="w-full space-y-2 mb-4 font-mono text-[9px]">
               <div className="flex flex-col gap-1">
                 <div className="flex justify-between text-gray-400">
@@ -378,7 +429,6 @@ export default function CooperativeChat() {
               </div>
             </div>
 
-            {/* 버튼 인터랙션 */}
             <div className="flex gap-2 w-full">
               <button
                 onClick={feedChic}
