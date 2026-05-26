@@ -8,7 +8,7 @@ const app = new Hono();
 app.use(
   '/api/*',
   cors({
-    origin: '*', // 개발의 편의성을 위해 모든 origin 허용
+    origin: '*',
     allowMethods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
     allowHeaders: ['Content-Type', 'Authorization'],
     exposeHeaders: ['Content-Length'],
@@ -41,9 +41,8 @@ app.get('/api/settings', async (c) => {
 app.post('/api/settings', async (c) => {
   try {
     const body = await c.req.json();
-    const { llm_type, llm_url, llm_model, telegram_token, chat_id, calendar_linked, brain_path } = body;
+    const { llm_type, llm_url, llm_model, telegram_token, chat_id, calendar_linked } = body;
 
-    // 기존 설정 유무 검증 후 최신 행 업데이트 또는 인서트
     const existing = await sql`SELECT id FROM settings ORDER BY id DESC LIMIT 1`;
 
     if (existing.length > 0) {
@@ -55,7 +54,6 @@ app.post('/api/settings', async (c) => {
             telegram_token = ${telegram_token},
             chat_id = ${chat_id},
             calendar_linked = ${calendar_linked},
-            brain_path = ${brain_path},
             updated_at = CURRENT_TIMESTAMP
         WHERE id = ${existing[0].id}
         RETURNING *
@@ -63,8 +61,8 @@ app.post('/api/settings', async (c) => {
       return c.json({ success: true, data: updated[0] });
     } else {
       const inserted = await sql`
-        INSERT INTO settings (llm_type, llm_url, llm_model, telegram_token, chat_id, calendar_linked, brain_path)
-        VALUES (${llm_type}, ${llm_url}, ${llm_model}, ${telegram_token}, ${chat_id}, ${calendar_linked}, ${brain_path})
+        INSERT INTO settings (llm_type, llm_url, llm_model, telegram_token, chat_id, calendar_linked)
+        VALUES (${llm_type}, ${llm_url}, ${llm_model}, ${telegram_token}, ${chat_id}, ${calendar_linked})
         RETURNING *
       `;
       return c.json({ success: true, data: inserted[0] });
@@ -165,7 +163,49 @@ app.post('/api/logs', async (c) => {
   }
 });
 
-// 7. 서버 기동 및 스키마 초기화
+// 7. Brain Documents API (PostgreSQL 지식 라이브러리 CRUD - [NEW])
+app.get('/api/documents', async (c) => {
+  try {
+    const docs = await sql`
+      SELECT * FROM brain_documents 
+      ORDER BY id DESC
+    `;
+    return c.json(docs);
+  } catch (err) {
+    return c.json({ error: (err as Error).message }, 500);
+  }
+});
+
+app.post('/api/documents', async (c) => {
+  try {
+    const body = await c.req.json();
+    const { title, content, category } = body;
+
+    const inserted = await sql`
+      INSERT INTO brain_documents (title, content, category)
+      VALUES (${title}, ${content}, ${category || 'Wiki'})
+      RETURNING *
+    `;
+    return c.json({ success: true, data: inserted[0] });
+  } catch (err) {
+    return c.json({ error: (err as Error).message }, 500);
+  }
+});
+
+app.delete('/api/documents/:id', async (c) => {
+  try {
+    const id = c.req.param('id');
+    await sql`
+      DELETE FROM brain_documents 
+      WHERE id = ${id}
+    `;
+    return c.json({ success: true, message: `지식 노드가 정상 파쇄되었습니다. (ID: ${id})` });
+  } catch (err) {
+    return c.json({ error: (err as Error).message }, 500);
+  }
+});
+
+// 8. 서버 기동 및 스키마 초기화
 const port = 8000;
 console.log(`🚀 Maru Company Hono.js API Server가 기동 중입니다... (Port: ${port})`);
 

@@ -1,10 +1,17 @@
 import React, { useState, useEffect } from 'react';
-import { Settings, Plug, Key, Database, RefreshCcw, CheckCircle, AlertTriangle } from 'lucide-react';
+import { Settings, Plug, Key, Database, RefreshCcw, CheckCircle, AlertTriangle, Trash2, Plus, BrainCircuit } from 'lucide-react';
 
 export type LLMEngineType = 'ollama' | 'lmstudio' | 'llamacpp' | 'vllm';
 
+interface BrainDoc {
+  id: number;
+  title: string;
+  content: string;
+  category: string;
+  created_at: string;
+}
+
 export default function ConnectionsPanel() {
-  // localStorage 연동 초기화
   const [llmType, setLlmType] = useState<LLMEngineType>(() => {
     return (localStorage.getItem('connect-ai-llm-type') as LLMEngineType) || 'ollama';
   });
@@ -24,53 +31,71 @@ export default function ConnectionsPanel() {
   const [teleTesting, setTeleTesting] = useState(false);
 
   const [calendarLinked, setCalendarLinked] = useState(true);
-  const [brainPath, setBrainPath] = useState('~/.marucompany-brain');
-
   const [backendSync, setBackendSync] = useState<'connected' | 'disconnected'>('disconnected');
 
-  // 백엔드 Hono API 연동 로드 (Mount)
+  // 🛢️ PostgreSQL 내장 지식 데이터베이스 관리 상태
+  const [brainDocs, setBrainDocs] = useState<BrainDoc[]>([]);
+  const [newDocTitle, setNewDocTitle] = useState('');
+  const [newDocContent, setNewDocContent] = useState('');
+  const [newDocCategory, setNewDocCategory] = useState('Wiki');
+  const [docLoading, setDocLoading] = useState(false);
+
+  // 백엔드 연동 로드 (Mount)
   useEffect(() => {
-    const fetchSettingsFromBackend = async () => {
+    const fetchSettingsAndDocs = async () => {
       try {
-        const res = await fetch('http://localhost:8000/api/settings');
-        if (res.ok) {
-          const data = await res.json();
-          // 백엔드 설정을 상태 및 로컬 스토리지에 동기화
+        // A. 설정 데이터 연동
+        const settingsRes = await fetch('http://localhost:8000/api/settings');
+        if (settingsRes.ok) {
+          const data = await settingsRes.json();
           setLlmType(data.llm_type);
           setLlmUrl(data.llm_url);
           setLlmModel(data.llm_model || '');
           setTeleToken(data.telegram_token || '');
           setChatId(data.chat_id || '');
           setCalendarLinked(data.calendar_linked);
-          setBrainPath(data.brain_path || '');
           setBackendSync('connected');
-          console.log('📶 PostgreSQL 백엔드 데이터베이스로부터 설정을 안전하게 동기화했습니다.');
-        } else {
-          setBackendSync('disconnected');
         }
+
+        // B. 지식 문서(Second Brain Docs) 연동
+        fetchDocuments();
       } catch {
-        setBackendSync('disconnected'); // 백엔드 오프라인 시 로컬 스토리지 모드 자동 유지
+        setBackendSync('disconnected');
+        // 오프라인 Mock 데이터 복구
+        setBrainDocs([
+          { id: 1, title: 'MrBeast 유튜브 썸네일 전략 팩', content: '클릭률(CTR) 18% 달성을 위해 노란색 배경에 강한 클로즈업 사진을 쓴다.', category: 'Skills', created_at: '방금 전' },
+          { id: 2, title: '마루컴퍼니 매출 확장 로드맵', content: 'PayPal 실시간 IPN 검증 솔루션을 게임 내 탑재하여 자동 부가 수익 획득.', category: 'Decisions', created_at: '방금 전' },
+        ]);
       }
     };
-    fetchSettingsFromBackend();
+
+    fetchSettingsAndDocs();
   }, []);
 
-  // 설정 저장 처리 함수 (로컬 + 백엔드 DB 동시 영구 저장)
+  const fetchDocuments = async () => {
+    try {
+      const res = await fetch('http://localhost:8000/api/documents');
+      if (res.ok) {
+        const data = await res.json();
+        setBrainDocs(data);
+      }
+    } catch {
+      console.log('지식 목록 불러오기 실패 (오프라인)');
+    }
+  };
+
   const saveSettings = async (
     type: LLMEngineType,
     url: string,
     model: string,
     token: string,
     cId: string,
-    calendar: boolean,
-    path: string
+    calendar: boolean
   ) => {
-    // 1. 로컬 스토리지 저장
     localStorage.setItem('connect-ai-llm-type', type);
     localStorage.setItem('connect-ai-llm-url', url);
     localStorage.setItem('connect-ai-llm-model', model);
 
-    // 2. 백엔드 PostgreSQL 저장 시도 (CORS 대응)
     try {
       const res = await fetch('http://localhost:8000/api/settings', {
         method: 'POST',
@@ -82,16 +107,76 @@ export default function ConnectionsPanel() {
           telegram_token: token,
           chat_id: cId,
           calendar_linked: calendar,
-          brain_path: path,
         }),
       });
-      if (res.ok) {
-        setBackendSync('connected');
-      } else {
-        setBackendSync('disconnected');
-      }
+      if (res.ok) setBackendSync('connected');
+      else setBackendSync('disconnected');
     } catch {
       setBackendSync('disconnected');
+    }
+  };
+
+  // 🛢️ PostgreSQL 신규 지식 주입 (DB Insert)
+  const handleAddDocument = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newDocTitle.trim() || !newDocContent.trim() || docLoading) return;
+
+    setDocLoading(true);
+    const payload = {
+      title: newDocTitle.trim(),
+      content: newDocContent.trim(),
+      category: newDocCategory,
+    };
+
+    try {
+      const res = await fetch('http://localhost:8000/api/documents', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+
+      if (res.ok) {
+        setNewDocTitle('');
+        setNewDocContent('');
+        fetchDocuments();
+        alert('🎉 데이터베이스 지식망에 마크다운 지식이 성공적으로 주입되었습니다! (100% Fileless)');
+      } else {
+        alert('❌ 백엔드 서버에서 지식 주입을 처리하지 못했습니다.');
+      }
+    } catch {
+      // 오프라인 Mock 추가 시뮬레이션
+      const mockDoc: BrainDoc = {
+        id: Date.now(),
+        title: payload.title,
+        content: payload.content,
+        category: payload.category,
+        created_at: '방금 전',
+      };
+      setBrainDocs((prev) => [mockDoc, ...prev]);
+      setNewDocTitle('');
+      setNewDocContent('');
+      alert('⚠️ 오프라인 임시 모드: 지식이 로컬 세션에 임시 주입되었습니다.');
+    } finally {
+      setDocLoading(false);
+    }
+  };
+
+  // 🛢️ PostgreSQL 지식 노드 영구 파쇄 (DB Delete)
+  const handleDeleteDocument = async (id: number) => {
+    if (!confirm('정말로 이 지식 노드를 데이터베이스에서 영구 파쇄하시겠습니까?')) return;
+
+    try {
+      const res = await fetch(`http://localhost:8000/api/documents/${id}`, {
+        method: 'DELETE',
+      });
+      if (res.ok) {
+        fetchDocuments();
+      } else {
+        alert('파쇄 실패');
+      }
+    } catch {
+      setBrainDocs((prev) => prev.filter((doc) => doc.id !== id));
+      alert('⚠️ 오프라인 임시 모드: 로컬 세션에서 임시 소멸 처리되었습니다.');
     }
   };
 
@@ -118,7 +203,7 @@ export default function ConnectionsPanel() {
     setLlmModel(defaultModel);
     setPingStatus('idle');
     
-    saveSettings(type, defaultUrl, defaultModel, teleToken, chatId, calendarLinked, brainPath);
+    saveSettings(type, defaultUrl, defaultModel, teleToken, chatId, calendarLinked);
   };
 
   const testLlmPing = async () => {
@@ -126,39 +211,24 @@ export default function ConnectionsPanel() {
     await new Promise((resolve) => setTimeout(resolve, 1200));
     
     try {
-      let pingUrl = `${llmUrl}/api/tags`; // ollama default
-      
-      if (llmType === 'lmstudio') {
-        pingUrl = `${llmUrl}/models`;
-      } else if (llmType === 'llamacpp') {
-        pingUrl = `${llmUrl}/health`;
-      } else if (llmType === 'vllm') {
-        pingUrl = `${llmUrl}/models`;
-      }
+      let pingUrl = `${llmUrl}/api/tags`;
+      if (llmType === 'lmstudio') pingUrl = `${llmUrl}/models`;
+      else if (llmType === 'llamacpp') pingUrl = `${llmUrl}/health`;
+      else if (llmType === 'vllm') pingUrl = `${llmUrl}/models`;
 
       const res = await fetch(pingUrl);
-      if (res.ok) {
-        setPingStatus('success');
-      } else {
-        setPingStatus('failed');
-      }
+      if (res.ok) setPingStatus('success');
+      else setPingStatus('failed');
     } catch {
-      setPingStatus('failed'); // 타 기기 등 오프라인/통신 실패 시
+      setPingStatus('failed');
     }
-  };
-
-  const testTelegram = async () => {
-    setTeleTesting(true);
-    await new Promise((resolve) => setTimeout(resolve, 1500));
-    setTeleTesting(false);
-    alert('📨 핸드폰 텔레그램으로 테스트 카드가 전송되었습니다! (시뮬레이션)');
   };
 
   return (
     <div className="flex flex-col h-full space-y-4 p-4 overflow-y-auto relative select-none font-sans">
       
       {/* 타이틀 헤더 */}
-      <div className="bg-obsidian-card p-4 rounded-xl border border-obsidian-border flex items-center justify-between glass-panel">
+      <div className="bg-obsidian-card p-4 rounded-xl border border-obsidian-border flex justify-between items-center glass-panel">
         <div className="flex items-center gap-3">
           <div className="p-2.5 bg-electric-cyan/15 rounded-lg border border-electric-cyan/20">
             <Settings className="w-5 h-5 text-electric-cyan" />
@@ -166,94 +236,62 @@ export default function ConnectionsPanel() {
           <div>
             <h2 className="text-sm font-bold text-gray-200">외부 시스템 API 연결 제어판</h2>
             <p className="text-[10px] text-gray-400 mt-0.5">
-              로컬 및 외부 기기 인공지능(LLM) 커넥션 진단 및 텔레그램, 구글 캘린더, 로컬 지식 리포지토리 연동 관리
+              로컬 및 원격 AI 엔진 통신 설정 및 PostgreSQL 데이터베이스 지식망 영구 연동 관리
             </p>
           </div>
         </div>
 
-        {/* 백엔드 데이터베이스 연결 상태 */}
         <div className="flex items-center gap-1.5 font-mono text-[9px] font-bold">
           {backendSync === 'connected' ? (
-            <span className="flex items-center gap-1 text-emerald-400 bg-emerald-950/40 border border-emerald-500/20 px-2.5 py-1 rounded-full">
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" /> 🛢️ PostgreSQL 백엔드 영구 보존 동기화 활성
+            <span className="flex items-center gap-1 text-emerald-400 bg-emerald-950/40 border border-emerald-500/20 px-2.5 py-1 rounded-full animate-pulse">
+              🛢️ PostgreSQL DB-First 활성 (오프라인 파일 완전 배제됨)
             </span>
           ) : (
             <span className="flex items-center gap-1 text-amber-400 bg-amber-950/40 border border-amber-500/20 px-2.5 py-1 rounded-full">
-              ⚠️ 백엔드 미동기화 (로컬 브라우저 백업 가동)
+              ⚠️ 임시 로컬 세션 (서버 오프라인)
             </span>
           )}
         </div>
       </div>
 
-      {/* 설정 그리드 */}
+      {/* 설정 1단 레이아웃 (LLM & 텔레그램 / 구글) */}
       <div className="grid grid-cols-2 gap-4">
-        
-        {/* 1. 로컬 및 다른 기기 LLM 통신 진단 */}
+        {/* 로컬 및 다른 기기 LLM 통신 진단 */}
         <div className="bg-obsidian-card p-4 rounded-2xl border border-obsidian-border glass-panel flex flex-col space-y-4">
           <div className="flex items-center gap-1.5 border-b border-obsidian-border pb-2">
             <Plug className="w-4 h-4 text-electric-cyan" />
-            <h3 className="text-xs font-bold text-gray-200">로컬 및 외부 LLM 엔진 연결 (Ollama / Llama.cpp / vLLM 등)</h3>
+            <h3 className="text-xs font-bold text-gray-200">로컬 및 외부 LLM 엔진 (Ollama / Llama.cpp / vLLM 등)</h3>
           </div>
 
           <div className="space-y-3 text-xs">
             <div className="flex flex-col gap-1">
               <label className="text-[10px] text-gray-400">엔진 타입 선택</label>
               <div className="grid grid-cols-2 gap-2">
-                <button
-                  type="button"
-                  onClick={() => handleEngineChange('ollama')}
-                  className={`py-1.5 rounded-lg border transition font-bold text-[11px] ${
-                    llmType === 'ollama'
-                      ? 'bg-electric-cyan/10 border-electric-cyan text-electric-cyan'
-                      : 'bg-obsidian/40 border-obsidian-border text-gray-400'
-                  }`}
-                >
-                  Ollama
-                </button>
-                <button
-                  type="button"
-                  onClick={() => handleEngineChange('lmstudio')}
-                  className={`py-1.5 rounded-lg border transition font-bold text-[11px] ${
-                    llmType === 'lmstudio'
-                      ? 'bg-electric-cyan/10 border-electric-cyan text-electric-cyan'
-                      : 'bg-obsidian/40 border-obsidian-border text-gray-400'
-                  }`}
-                >
-                  LM Studio
-                </button>
-                <button
-                  type="button"
-                  onClick={() => handleEngineChange('llamacpp')}
-                  className={`py-1.5 rounded-lg border transition font-bold text-[11px] ${
-                    llmType === 'llamacpp'
-                      ? 'bg-electric-cyan/10 border-electric-cyan text-electric-cyan'
-                      : 'bg-obsidian/40 border-obsidian-border text-gray-400'
-                  }`}
-                >
-                  llama.cpp
-                </button>
-                <button
-                  type="button"
-                  onClick={() => handleEngineChange('vllm')}
-                  className={`py-1.5 rounded-lg border transition font-bold text-[11px] ${
-                    llmType === 'vllm'
-                      ? 'bg-electric-cyan/10 border-electric-cyan text-electric-cyan'
-                      : 'bg-obsidian/40 border-obsidian-border text-gray-400'
-                  }`}
-                >
-                  vLLM (OpenAI API)
-                </button>
+                {['ollama', 'lmstudio', 'llamacpp', 'vllm'].map((type) => (
+                  <button
+                    key={type}
+                    type="button"
+                    onClick={() => handleEngineChange(type as LLMEngineType)}
+                    className={`py-1.5 rounded-lg border transition font-bold text-[11px] uppercase ${
+                      llmType === type
+                        ? 'bg-electric-cyan/10 border-electric-cyan text-electric-cyan'
+                        : 'bg-obsidian/40 border-obsidian-border text-gray-400'
+                    }`}
+                  >
+                    {type === 'llamacpp' ? 'llama.cpp' : type}
+                  </button>
+                ))}
               </div>
             </div>
 
             <div className="flex flex-col gap-1">
-              <label className="text-[10px] text-gray-400">API 엔드포인트 URL 주소 (다른 기기 IP도 가능)</label>
+              <label className="text-[10px] text-gray-400">API 엔드포인트 URL 주소 (다른 기기 IP도 지원)</label>
               <input
                 type="text"
                 value={llmUrl}
                 onChange={(e) => {
                   setLlmUrl(e.target.value);
-                  saveSettings(llmType, e.target.value, llmModel, teleToken, chatId, calendarLinked, brainPath);
+                  saveSettings(llmType, e.target.value, llmModel, teleToken, chatId, calendarLinked);
                 }}
                 placeholder="예: http://192.168.1.100:11434"
                 className="bg-obsidian border border-obsidian-border rounded-lg px-3 py-2 text-gray-200 focus:outline-none focus:border-electric-cyan font-mono"
@@ -267,7 +305,7 @@ export default function ConnectionsPanel() {
                 value={llmModel}
                 onChange={(e) => {
                   setLlmModel(e.target.value);
-                  saveSettings(llmType, llmUrl, e.target.value, teleToken, chatId, calendarLinked, brainPath);
+                  saveSettings(llmType, llmUrl, e.target.value, teleToken, chatId, calendarLinked);
                 }}
                 placeholder="비우면 기본 지정 모델 사용"
                 className="bg-obsidian border border-obsidian-border rounded-lg px-3 py-2 text-gray-200 focus:outline-none focus:border-electric-cyan font-mono"
@@ -286,12 +324,8 @@ export default function ConnectionsPanel() {
                     <AlertTriangle className="w-3.5 h-3.5" /> 연결 실패 (시뮬레이션 모드 작동)
                   </span>
                 )}
-                {pingStatus === 'idle' && (
-                  <span className="text-[10px] text-gray-400">핑 테스트 대기 중</span>
-                )}
-                {pingStatus === 'testing' && (
-                  <span className="text-[10px] text-electric-cyan animate-pulse">패킷 전송 중...</span>
-                )}
+                {pingStatus === 'idle' && <span className="text-[10px] text-gray-400">핑 테스트 대기 중</span>}
+                {pingStatus === 'testing' && <span className="text-[10px] text-electric-cyan animate-pulse">패킷 전송 중...</span>}
               </div>
 
               <button
@@ -305,11 +339,11 @@ export default function ConnectionsPanel() {
           </div>
         </div>
 
-        {/* 2. 모바일 비서 텔레그램 연동 */}
+        {/* 모바일 비서 텔레그램 연동 */}
         <div className="bg-obsidian-card p-4 rounded-2xl border border-obsidian-border glass-panel flex flex-col space-y-4">
           <div className="flex items-center gap-1.5 border-b border-obsidian-border pb-2">
             <Key className="w-4 h-4 text-electric-violet" />
-            <h3 className="text-xs font-bold text-gray-200 font-sans">비서 텔레그램 봇 모바일 브릿지</h3>
+            <h3 className="text-xs font-bold text-gray-200">비서 텔레그램 봇 모바일 브릿지</h3>
           </div>
 
           <div className="space-y-3 text-xs font-sans">
@@ -320,7 +354,7 @@ export default function ConnectionsPanel() {
                 value={teleToken}
                 onChange={(e) => {
                   setTeleToken(e.target.value);
-                  saveSettings(llmType, llmUrl, llmModel, e.target.value, chatId, calendarLinked, brainPath);
+                  saveSettings(llmType, llmUrl, llmModel, e.target.value, chatId, calendarLinked);
                 }}
                 className="bg-obsidian border border-obsidian-border rounded-lg px-3 py-2 text-gray-200 focus:outline-none focus:border-electric-cyan font-mono"
               />
@@ -350,69 +384,116 @@ export default function ConnectionsPanel() {
             </div>
           </div>
         </div>
+      </div>
 
-        {/* 3. 구글 캘린더 OAuth */}
-        <div className="bg-obsidian-card p-4 rounded-2xl border border-obsidian-border glass-panel flex flex-col space-y-4">
-          <div className="flex items-center gap-1.5 border-b border-obsidian-border pb-2">
-            <CheckCircle className="w-4 h-4 text-emerald-500" />
-            <h3 className="text-xs font-bold text-gray-200">Google Calendar OAuth 연동</h3>
-          </div>
-
-          <div className="space-y-3 text-xs">
-            <p className="text-[10px] text-gray-400 leading-relaxed">
-              비서가 마스터님의 구글 캘린더에 접근하여 자연어로 일정을 조회하고 미팅을 예약/삭제할 수 있는 권한 승인 상태입니다.
-            </p>
-
-            <div className="flex items-center justify-between bg-obsidian/60 p-3 rounded-lg border border-obsidian-border">
-              <div className="flex flex-col">
-                <span className="font-bold text-gray-300">구글 계정 연결 상태</span>
-                <span className="text-[9px] text-gray-500">wonseokjung@gmail.com</span>
-              </div>
-
-              <button
-                onClick={() => {
-                  const targetLink = !calendarLinked;
-                  setCalendarLinked(targetLink);
-                  saveSettings(llmType, llmUrl, llmModel, teleToken, chatId, targetLink, brainPath);
-                  alert(`구글 캘린더 OAuth 연결이 ${targetLink ? '활성화' : '해제'}되었습니다.`);
-                }}
-                className={`px-3 py-1 rounded text-[10px] font-bold transition ${
-                  calendarLinked ? 'bg-red-950/40 border border-red-500/30 text-red-400 hover:bg-red-900/40' : 'bg-emerald-500 text-obsidian hover:bg-emerald-400'
-                }`}
-              >
-                {calendarLinked ? '연결 끊기' : '구글 연동 활성화'}
-              </button>
-            </div>
-          </div>
+      {/* 2단: 🛢️ PostgreSQL 내장 지식 데이터베이스 관리 시스템 (Second Brain Editor - [NEW/DB-FIRST]) */}
+      <div className="bg-obsidian-card p-4 rounded-2xl border border-obsidian-border glass-panel flex flex-col space-y-4">
+        <div className="flex items-center gap-1.5 border-b border-obsidian-border pb-2.5">
+          <BrainCircuit className="w-4 h-4 text-emerald-400" />
+          <h3 className="text-xs font-bold text-gray-200 font-sans tracking-wide">
+            🛢️ PostgreSQL 내장 지식 라이브러리 (Fileless Second Brain)
+          </h3>
         </div>
 
-        {/* 4. 로컬 지식 저장소 (Second Brain) */}
-        <div className="bg-obsidian-card p-4 rounded-2xl border border-obsidian-border glass-panel flex flex-col space-y-4">
-          <div className="flex items-center gap-1.5 border-b border-obsidian-border pb-2">
-            <Database className="w-4 h-4 text-amber-500" />
-            <h3 className="text-xs font-bold text-gray-200">로컬 제2의 두뇌 (Local Second Brain Path)</h3>
-          </div>
-
-          <div className="space-y-3 text-xs">
+        <div className="grid grid-cols-5 gap-4">
+          
+          {/* 지식 주입 폼 (왼쪽 2열) */}
+          <form onSubmit={handleAddDocument} className="col-span-2 space-y-3 bg-obsidian/40 border border-slate-900 p-3.5 rounded-xl text-xs font-sans">
+            <h4 className="font-bold text-electric-cyan flex items-center gap-1">
+              <Plus className="w-3.5 h-3.5" /> 신규 지식 노드 주입
+            </h4>
+            
             <div className="flex flex-col gap-1">
-              <label className="text-[10px] text-gray-400">지식 위키 저장 폴더 경로</label>
+              <label className="text-[9px] text-gray-400">지식 제목 (Title)</label>
               <input
                 type="text"
-                value={brainPath}
-                onChange={(e) => {
-                  setBrainPath(e.target.value);
-                  saveSettings(llmType, llmUrl, llmModel, teleToken, chatId, calendarLinked, e.target.value);
-                }}
-                className="bg-obsidian border border-obsidian-border rounded-lg px-3 py-2 text-gray-200 focus:outline-none focus:border-electric-cyan font-mono"
+                required
+                value={newDocTitle}
+                onChange={(e) => setNewDocTitle(e.target.value)}
+                placeholder="예: MrBeast 유튜브 CTR 최적화 전략"
+                className="bg-obsidian border border-obsidian-border rounded-lg px-3 py-2 text-gray-200 focus:outline-none focus:border-electric-cyan font-sans"
               />
             </div>
 
-            <p className="text-[9px] text-gray-500 leading-relaxed">
-              * 해당 로컬 디렉토리 내부의 `.md` 파일들이 P-Reinforce 규칙에 맞춰 자율 구조화되며, 지정된 백업 깃허브 저장소로 Auto-Git Sync가 자동 기동됩니다.
-            </p>
-          </div>
-        </div>
+            <div className="flex flex-col gap-1">
+              <label className="text-[9px] text-gray-400">지식 카테고리 (Category)</label>
+              <select
+                value={newDocCategory}
+                onChange={(e) => setNewDocCategory(e.target.value)}
+                className="bg-obsidian border border-obsidian-border rounded-lg px-3 py-2 text-gray-300 focus:outline-none focus:border-electric-cyan"
+              >
+                <option value="Wiki">💡 Topics (위키)</option>
+                <option value="Decisions">⚖️ Decisions (결정 로그)</option>
+                <option value="Skills">🚀 Skills (패턴/스킬)</option>
+              </select>
+            </div>
 
+            <div className="flex flex-col gap-1">
+              <label className="text-[9px] text-gray-400">마크다운 본문 내용 (Content)</label>
+              <textarea
+                required
+                rows={4}
+                value={newDocContent}
+                onChange={(e) => setNewDocContent(e.target.value)}
+                placeholder="인공지능 에이전트들이 미션 오케스트레이션 시 인용해 RAG에 적용할 텍스트 지식을 기입합니다..."
+                className="bg-obsidian border border-obsidian-border rounded-lg px-3 py-2 text-gray-200 focus:outline-none focus:border-electric-cyan font-sans resize-none leading-relaxed"
+              />
+            </div>
+
+            <button
+              type="submit"
+              disabled={docLoading}
+              className="w-full py-2 bg-emerald-500 hover:bg-emerald-400 disabled:bg-slate-700 text-obsidian font-bold rounded-lg transition text-center shadow-[0_0_15px_rgba(16,185,129,0.3)]"
+            >
+              {docLoading ? '지식 인젝션 중...' : '지식 주입 (DB 저장)'}
+            </button>
+          </form>
+
+          {/* 지식 리스트 보드 (오른쪽 3열) */}
+          <div className="col-span-3 bg-obsidian/20 border border-slate-900 rounded-xl p-3 flex flex-col h-[340px]">
+            <span className="text-[10px] text-gray-400 font-bold mb-2">데이터베이스 활성 지식망 리스트</span>
+            
+            <div className="flex-1 overflow-y-auto space-y-2 pr-1">
+              {brainDocs.length === 0 ? (
+                <div className="h-full flex items-center justify-center text-gray-500 text-[10px] font-mono">
+                  [Empty] 현재 주입된 세컨브레인 지식이 없습니다.
+                </div>
+              ) : (
+                brainDocs.map((doc) => (
+                  <div
+                    key={doc.id}
+                    className="p-3 bg-obsidian-card border border-slate-900 rounded-lg hover:border-slate-800 transition flex justify-between items-start gap-4"
+                  >
+                    <div className="flex flex-col space-y-1">
+                      <div className="flex items-center gap-1.5">
+                        <span className={`text-[8px] px-1.5 py-0.5 rounded border font-mono font-bold uppercase ${
+                          doc.category === 'Skills'
+                            ? 'bg-emerald-950/40 border-emerald-500/20 text-emerald-400'
+                            : doc.category === 'Decisions'
+                            ? 'bg-electric-violet/20 border-electric-violet/30 text-electric-violet'
+                            : 'bg-electric-cyan/20 border-electric-cyan/30 text-electric-cyan'
+                        }`}>
+                          {doc.category}
+                        </span>
+                        <span className="font-bold text-xs text-gray-200">{doc.title}</span>
+                      </div>
+                      <p className="text-[10px] text-gray-400 leading-relaxed font-sans">{doc.content}</p>
+                    </div>
+
+                    <button
+                      onClick={() => handleDeleteDocument(doc.id)}
+                      className="p-1 text-gray-500 hover:text-red-400 transition"
+                      title="지식 파쇄"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+
+        </div>
       </div>
 
     </div>

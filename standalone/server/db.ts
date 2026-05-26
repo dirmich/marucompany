@@ -14,7 +14,7 @@ export async function initializeDatabase() {
   console.log('🔄 PostgreSQL 데이터베이스 스키마 검증 및 마이그레이션 기동...');
   
   try {
-    // 1. Settings 테이블 생성
+    // 1. Settings 테이블 생성 (순수 외부 연동 상태 중심)
     await sql`
       CREATE TABLE IF NOT EXISTS settings (
         id SERIAL PRIMARY KEY,
@@ -24,7 +24,6 @@ export async function initializeDatabase() {
         telegram_token VARCHAR(255),
         chat_id VARCHAR(100),
         calendar_linked BOOLEAN DEFAULT TRUE,
-        brain_path VARCHAR(255),
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       )
     `;
@@ -60,7 +59,18 @@ export async function initializeDatabase() {
       )
     `;
 
-    console.log('✅ 데이터베이스 스키마 검증 완료. 4대 핵심 테이블(settings, chat_messages, transactions, activity_logs)이 안전하게 확보되었습니다.');
+    // 5. Brain Documents 테이블 생성 (로컬 파일 시스템 전면 대체 🛢️)
+    await sql`
+      CREATE TABLE IF NOT EXISTS brain_documents (
+        id SERIAL PRIMARY KEY,
+        title VARCHAR(255) NOT NULL,
+        content TEXT NOT NULL,
+        category VARCHAR(50) DEFAULT 'Wiki',
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `;
+
+    console.log('✅ 데이터베이스 스키마 검증 완료. 5대 핵심 테이블(settings, chat_messages, transactions, activity_logs, brain_documents)이 안전하게 확보되었습니다.');
   } catch (error) {
     console.error('❌ 데이터베이스 스키마 생성 중 치명적인 장애가 감지되었습니다:', error);
     console.log('💡 안내: PostgreSQL 서버가 실행 중이며 로컬 포트 5432가 열려있는지 확인해 주세요. (미구동 시 프론트엔드는 Graceful Fallback 모드로 안전하게 작동합니다.)');

@@ -54,7 +54,7 @@ export default function VirtualOffice() {
           if (data.length > 0) {
             setStatusLog(data);
           } else {
-            const initLog = '[System] 가상 오피스 시스템이 로컬 네트워크에서 대기 중입니다.';
+            const initLog = '[System] 가상 오피스 시스템이 활성화되었으며, 파일리스 DB-First 지식망 작동 준비를 마쳤습니다.';
             setStatusLog([initLog]);
             saveLogToBackend(initLog);
           }
@@ -375,7 +375,7 @@ export default function VirtualOffice() {
             </div>
             
             <span className="text-[8px] font-mono text-gray-400">
-              {dbSync ? '🛢️ DB 연동완료' : '임시 세션'}
+              {dbSync ? '🛢️ DB-First Active' : '임시 세션'}
             </span>
           </div>
 

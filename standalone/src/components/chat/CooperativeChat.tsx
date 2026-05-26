@@ -47,7 +47,6 @@ export default function CooperativeChat() {
           if (data.length > 0) {
             setMessages(data);
           } else {
-            // 히스토리가 비었을 때 기본 웰컴 배치
             setMessages([
               {
                 id: 'init-1',
@@ -65,7 +64,7 @@ export default function CooperativeChat() {
         }
       } catch {
         setDbSyncActive(false);
-        loadDefaultWelcome(); // 백엔드 미동작 시 기본 웰컴
+        loadDefaultWelcome();
       }
     };
 
@@ -109,7 +108,6 @@ export default function CooperativeChat() {
     return () => clearInterval(interval);
   }, []);
 
-  // 메시지 백엔드 DB 저장 헬퍼 함수
   const saveMessageToBackend = async (msg: ChatMessage) => {
     try {
       await fetch('http://localhost:8000/api/chat/messages', {
@@ -118,7 +116,7 @@ export default function CooperativeChat() {
         body: JSON.stringify(msg),
       });
     } catch (err) {
-      console.log('메시지 데이터베이스 동기화 실패 (오프라인 모드로 자동 보정)');
+      console.log('메시지 데이터베이스 동기화 실패');
     }
   };
 
@@ -167,7 +165,25 @@ export default function CooperativeChat() {
     const currentUrl = localStorage.getItem('connect-ai-llm-url') || 'http://127.0.0.1:11434';
     const currentModel = localStorage.getItem('connect-ai-llm-model') || '';
 
-    const systemPrompt = `너는 1인 기업 AI 에이전트 팀의 대표이사 CEO Jay다. 사장님의 다음 지시사항에 정중하게 솔로프레너 마인드로 답해라: "${userText}"`;
+    // 🛢️ [PostgreSQL DB-First RAG 핵심 이식]
+    // 백엔드 API /api/documents 에서 실시간으로 주입된 지식 데이터 스캔 로드
+    let dbRAGContext = '';
+    try {
+      const docRes = await fetch('http://localhost:8000/api/documents');
+      if (docRes.ok) {
+        const docs = await docRes.json();
+        if (docs.length > 0) {
+          dbRAGContext = '\n\n[데이터베이스 내부에서 추출된 제2의 두뇌 RAG 지식 지표]:\n';
+          docs.forEach((doc: any, i: number) => {
+            dbRAGContext += `${i+1}. 제목: ${doc.title} | 내용: ${doc.content}\n`;
+          });
+        }
+      }
+    } catch {
+      console.log('지식 DB-RAG 로드 오류 (임시 모드로 우회 통신)');
+    }
+
+    const systemPrompt = `너는 1인 기업 AI 에이전트 팀의 대표이사 CEO Jay다. 사장님의 다음 지시사항에 정중하게 솔로프레너 마인드로 답해라: "${userText}"${dbRAGContext}\n\n⚠️ 주의: 위의 [RAG 지식 지표]가 주어졌다면, 상상의 수치를 지어내지 말고 해당 데이터베이스 내용을 바탕으로 정확하게 인용하여 대변인으로서 보고해라.`;
 
     if (engineConnected) {
       try {
@@ -232,7 +248,7 @@ export default function CooperativeChat() {
       }
     }
 
-    // 5. Intelligent Simulator Fallback (오프라인/통신 장애 대비)
+    // 5. Intelligent Simulator Fallback (임시 가상 시뮬레이션)
     const normalizedText = userText.toLowerCase();
 
     if (normalizedText.includes('게임') || normalizedText.includes('다마고치') || normalizedText.includes('코다리')) {
@@ -288,7 +304,7 @@ export default function CooperativeChat() {
         id: `ceo-${Date.now()}`,
         sender: 'ceo',
         senderName: 'Jay (CEO)',
-        text: `대표이사 Jay입니다. "${userText}" 지시사항을 잘 확인했습니다. \n\n[엔진 상태: ${engineLabel} 오프라인 시뮬레이션]\n\n이 프로젝트는 100% 로컬 프라이버시가 확보된 상태로 나만의 두뇌(.md 파일 위키)와 9명의 에이전트가 협업해 마스터님의 1인 기업 비즈니스 생산성을 폭발적으로 극대화시킵니다. 원하시는 서비스 템플릿(Kit) 개발이나 PayPal 매출 연동을 언제든 말씀만 해주세요!`,
+        text: `대표이사 Jay입니다. "${userText}" 지시사항을 잘 확인했습니다. \n\n[엔진 상태: ${engineLabel} 오프라인 시뮬레이션]\n\n이 프로젝트는 100% 파일 리스(Fileless) 구조로 나만의 두뇌(PostgreSQL DB 지식)와 9명의 에이전트가 협업해 마스터님의 1인 기업 비즈니스 생산성을 폭발적으로 극대화시킵니다. 원하시는 서비스 템플릿(Kit) 개발이나 PayPal 매출 연동을 언제든 말씀만 해주세요!`,
         timestamp: new Date().toLocaleTimeString(),
       };
       setMessages((prev) => [...prev, ceoMsg]);
@@ -318,7 +334,7 @@ export default function CooperativeChat() {
           <div className="flex items-center gap-2 font-mono text-[9px] font-bold">
             {dbSyncActive ? (
               <span className="text-emerald-400 bg-emerald-950/40 border border-emerald-500/20 px-2 py-0.5 rounded-full">
-                🛢️ PostgreSQL 대화 저장 보존 활성
+                🛢️ PostgreSQL DB-First RAG 연동중
               </span>
             ) : (
               <span className="text-gray-400 bg-slate-900 border border-slate-800 px-2 py-0.5 rounded-full font-sans">
