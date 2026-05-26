@@ -49,7 +49,7 @@ export default function ConnectionsPanel() {
   // ✍️ 수동 직접 입력 토글 상태
   const [isCustomModel, setIsCustomModel] = useState(false);
 
-  // 마운트 시 혹은 모델/엔진 변경 시 수동 모드 여부 자동 감지
+  // 1. 마운트 시 혹은 모델/엔진 변경 시 수동 모드 여부 자동 감지
   useEffect(() => {
     const modelsToUse = availableModels.length > 0 ? availableModels : FALLBACK_MODELS[llmType] || [];
     if (llmModel && !modelsToUse.includes(llmModel)) {
@@ -58,6 +58,20 @@ export default function ConnectionsPanel() {
       setIsCustomModel(false);
     }
   }, [llmModel, llmType, availableModels]);
+
+  // 2. 엔진(llmType)이나 스캔 결과(availableModels)가 갱신되었을 때, 
+  // 기존 llmModel이 빈값 또는 불일치하고 수동 모드가 아닐 시 첫 번째 항목으로 자동 교정하여 드롭다운 빈칸 표시 차단
+  useEffect(() => {
+    const modelsToUse = availableModels.length > 0 ? availableModels : FALLBACK_MODELS[llmType] || [];
+    if (modelsToUse.length > 0) {
+      if (!llmModel || (!modelsToUse.includes(llmModel) && !isCustomModel)) {
+        const fallbackTarget = modelsToUse[0] || '';
+        setLlmModel(fallbackTarget);
+        saveSettings(llmType, llmUrl, fallbackTarget, teleToken, chatId, calendarLinked);
+      }
+    }
+  }, [llmType, availableModels]);
+
 
 
   // 🛢️ PostgreSQL 내장 지식 데이터베이스 관리 상태
@@ -269,7 +283,7 @@ export default function ConnectionsPanel() {
         const data = await res.json();
         let modelList: string[] = [];
         if (llmType === 'ollama') {
-          modelList = data.models ? data.models.map((m: any) => m.name) : [];
+          modelList = data.models ? data.models.map((m: any) => m.name || m.model || '') : [];
         } else if (llmType === 'lmstudio' || llmType === 'vllm') {
           modelList = data.data ? data.data.map((m: any) => m.id) : [];
         } else if (llmType === 'llamacpp') {

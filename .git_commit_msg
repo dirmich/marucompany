@@ -1,9 +1,5 @@
-refactor: Hono 백엔드 서버 5대 라우터 모듈화 리팩토링 및 외부 LLM 실시간 스캔 자동화 고도화
+fix: 외부 LLM 모델 목록 파싱 호환성 보완 및 드롭다운 빈칸 렌더링 예방 정합성 적용
 
-- 브라우저 CORS 제한 우회를 위한 백엔드 Hono API 프록시 (/api/proxy/models) 구현
-- LLM 오프라인 시에도 드롭다운 선택이 가능한 엔진별 Fallback 권장 모델 리스트 탑재
-- 수동 직접 입력 토글 기능(하이브리드 UX) 제공으로 모델 설정의 높은 유연성 확보
-- 연결 성공 시 자동 모델 바인딩 및 settings 테이블 영구 DB 저장 동기화
-- tsconfig 엄격 검사 대응을 위한 unused imports 및 variables 리팩토링 및 빌드 무결성 검증 완료
-- Hono 백엔드 서버를 5대 독립 라우터 모듈(settings, documents, chat, transactions, logs)로 전면 분리
-- server/index.ts 코드를 40라인 수준으로 경량화하여 서브-라우팅 엔트리포인트로 재구축
+- Ollama 모델 조회 시 m.name 외에 m.model 필드까지 fallback 파싱 처리해 호환성 극대화 (routes/settings.ts, ConnectionsPanel.tsx)
+- 엔진 전환 또는 핑 성공 시, 기존 모델명이 목록에 존재하지 않을 때 드롭다운에 빈칸이 렌더링되는 문제를 예방하기 위한 자동 정합성 교정 useEffect 도입 (ConnectionsPanel.tsx)
+- 타입 검사(tsc) 및 Vite 프로덕션 빌드 무결성 확인 및 빌드 테스트 완료

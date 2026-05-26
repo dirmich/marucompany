@@ -87,7 +87,7 @@ settingsRouter.post('/proxy/models', async (c) => {
       let models: string[] = [];
 
       if (llm_type === 'ollama') {
-        models = data.models ? data.models.map((m: any) => m.name) : [];
+        models = data.models ? data.models.map((m: any) => m.name || m.model || '') : [];
       } else if (llm_type === 'lmstudio' || llm_type === 'vllm') {
         models = data.data ? data.data.map((m: any) => m.id) : [];
       } else if (llm_type === 'llamacpp') {
