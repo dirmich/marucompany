@@ -1,0 +1,83 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    @apply bg-[#0B0F19] text-gray-100 antialiased font-sans select-none;
+  }
+}
+
+/* Glassmorphism Panels */
+.glass-panel {
+  background: rgba(17, 24, 39, 0.65);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+}
+
+.glass-panel-neon {
+  background: rgba(17, 24, 39, 0.75);
+  backdrop-filter: blur(20px);
+  border: 1px solid rgba(0, 240, 255, 0.15);
+  box-shadow: 0 8px 32px 0 rgba(0, 240, 255, 0.08);
+}
+
+/* Scrollbar Customization */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: rgba(11, 15, 25, 0.5);
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(139, 92, 246, 0.3);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(0, 240, 255, 0.5);
+}
+
+/* Matrix Binary Glitch Stream Effect (Optional / Decorative) */
+@keyframes matrixRain {
+  0% { transform: translateY(-100%); }
+  100% { transform: translateY(100%); }
+}
+
+.matrix-stream {
+  writing-mode: vertical-rl;
+  text-orientation: upright;
+  animation: matrixRain 20s linear infinite;
+}
+
+/* Laser Beam Particle Animation */
+@keyframes shootBeam {
+  0% {
+    transform: translate(0, 0) scale(1);
+    opacity: 1;
+  }
+  85% {
+    opacity: 1;
+  }
+  100% {
+    transform: translate(var(--tx), var(--ty)) scale(0.4);
+    opacity: 0;
+  }
+}
+
+.beam-laser {
+  position: absolute;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: radial-gradient(circle, #ffffff 30%, var(--beam-color) 80%);
+  box-shadow: 0 0 10px var(--beam-color), 0 0 20px var(--beam-color);
+  animation: shootBeam 1.2s cubic-bezier(0.25, 1, 0.5, 1) forwards;
+  pointer-events: none;
+  z-index: 50;
+}
