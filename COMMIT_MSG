@@ -1,4 +1,6 @@
-fix: ConnectionsPanel.tsx 런타임 에러 해결 (testTelegram 함수 복원)
+feat: ConnectionsPanel 내 LLM 연결성공 시 동적 모델 감지 로드 및 드롭다운(Select) 폼 UX 고도화
 
-- ConnectionsPanel.tsx 내에서 정의 누락되어 런타임 ReferenceError를 유발하던 testTelegram 함수 정의 복원
-- 텔레그램 테스트 알림 시뮬레이션 기능의 온전한 런타임 구동 보장 완료
+- ConnectionsPanel에 availableModels 상태 및 로컬 스토리지 캐싱 바인딩 추가
+- 연결 확인(Ping) 성공 시, Ollama(/api/tags), LM Studio(/models), vLLM(/models) 등의 실시간 서빙 모델 목록 API를 비동기 스캔 파싱하여 로드
+- 사용 가능한 모델이 확보될 경우 수동 입력 대신 편리한 드롭다운(Select) 폼으로 동적 UI 전환 제공
+- 오프라인 등 모델 목록 미확보 상황에서는 유연한 수동 지정을 위해 일반 input 텍스트 창을 보여주는 하이브리드 UX 구현 완료

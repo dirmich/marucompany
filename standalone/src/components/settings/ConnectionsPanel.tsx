@@ -33,6 +33,12 @@ export default function ConnectionsPanel() {
   const [calendarLinked, setCalendarLinked] = useState(true);
   const [backendSync, setBackendSync] = useState<'connected' | 'disconnected'>('disconnected');
 
+  // 🧠 연결 확인 시 로드할 사용 가능한 모델 리스트 상태
+  const [availableModels, setAvailableModels] = useState<string[]>(() => {
+    const saved = localStorage.getItem('connect-ai-available-models');
+    return saved ? JSON.parse(saved) : [];
+  });
+
   // 🛢️ PostgreSQL 내장 지식 데이터베이스 관리 상태
   const [brainDocs, setBrainDocs] = useState<BrainDoc[]>([]);
   const [newDocTitle, setNewDocTitle] = useState('');
@@ -208,6 +214,7 @@ export default function ConnectionsPanel() {
 
   const testLlmPing = async () => {
     setPingStatus('testing');
+    setAvailableModels([]);
     await new Promise((resolve) => setTimeout(resolve, 1200));
     
     try {
@@ -217,9 +224,36 @@ export default function ConnectionsPanel() {
       else if (llmType === 'vllm') pingUrl = `${llmUrl}/models`;
 
       const res = await fetch(pingUrl);
-      if (res.ok) setPingStatus('success');
-      else setPingStatus('failed');
-    } catch {
+      if (res.ok) {
+        setPingStatus('success');
+        const data = await res.json();
+        
+        // 실시간 모델 리스트 스캔 파싱
+        let modelList: string[] = [];
+        if (llmType === 'ollama') {
+          modelList = data.models ? data.models.map((m: any) => m.name) : [];
+        } else if (llmType === 'lmstudio' || llmType === 'vllm') {
+          modelList = data.data ? data.data.map((m: any) => m.id) : [];
+        } else if (llmType === 'llamacpp') {
+          modelList = ['llama.cpp-default-server'];
+        }
+
+        if (modelList.length > 0) {
+          setAvailableModels(modelList);
+          localStorage.setItem('connect-ai-available-models', JSON.stringify(modelList));
+          
+          // 로드된 첫 번째 모델을 자동으로 현재 모델로 바인딩
+          if (!llmModel || !modelList.includes(llmModel)) {
+            setLlmModel(modelList[0]);
+            saveSettings(llmType, llmUrl, modelList[0], teleToken, chatId, calendarLinked);
+          }
+          console.log(`🤖 실시간 연동 성공: ${modelList.length}개의 모델 목록을 감지해 이식했습니다.`, modelList);
+        }
+      } else {
+        setPingStatus('failed');
+      }
+    } catch (err) {
+      console.error('LLM 핑/모델 감지 통신 실패:', err);
       setPingStatus('failed');
     }
   };
@@ -306,17 +340,34 @@ export default function ConnectionsPanel() {
             </div>
 
             <div className="flex flex-col gap-1">
-              <label className="text-[10px] text-gray-400">사용할 모델 이름 (Model Name)</label>
-              <input
-                type="text"
-                value={llmModel}
-                onChange={(e) => {
-                  setLlmModel(e.target.value);
-                  saveSettings(llmType, llmUrl, e.target.value, teleToken, chatId, calendarLinked);
-                }}
-                placeholder="비우면 기본 지정 모델 사용"
-                className="bg-obsidian border border-obsidian-border rounded-lg px-3 py-2 text-gray-200 focus:outline-none focus:border-electric-cyan font-mono"
-              />
+              <label className="text-[10px] text-gray-400">사용할 모델 선택 (Model Name)</label>
+              {availableModels.length > 0 ? (
+                <select
+                  value={llmModel}
+                  onChange={(e) => {
+                    setLlmModel(e.target.value);
+                    saveSettings(llmType, llmUrl, e.target.value, teleToken, chatId, calendarLinked);
+                  }}
+                  className="bg-obsidian border border-obsidian-border rounded-lg px-3 py-2 text-gray-200 focus:outline-none focus:border-electric-cyan font-mono"
+                >
+                  {availableModels.map((model) => (
+                    <option key={model} value={model}>
+                      {model}
+                    </option>
+                  ))}
+                </select>
+              ) : (
+                <input
+                  type="text"
+                  value={llmModel}
+                  onChange={(e) => {
+                    setLlmModel(e.target.value);
+                    saveSettings(llmType, llmUrl, e.target.value, teleToken, chatId, calendarLinked);
+                  }}
+                  placeholder="예: gemma:2b (연결 성공 시 자동 로드됩니다)"
+                  className="bg-obsidian border border-obsidian-border rounded-lg px-3 py-2 text-gray-200 focus:outline-none focus:border-electric-cyan font-mono"
+                />
+              )}
             </div>
 
             <div className="flex items-center justify-between pt-2">
