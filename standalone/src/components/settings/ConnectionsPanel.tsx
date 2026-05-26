@@ -224,6 +224,13 @@ export default function ConnectionsPanel() {
     }
   };
 
+  const testTelegram = async () => {
+    setTeleTesting(true);
+    await new Promise((resolve) => setTimeout(resolve, 1500));
+    setTeleTesting(false);
+    alert('📨 핸드폰 텔레그램으로 테스트 카드가 전송되었습니다! (시뮬레이션)');
+  };
+
   return (
     <div className="flex flex-col h-full space-y-4 p-4 overflow-y-auto relative select-none font-sans">
       
