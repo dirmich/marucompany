@@ -24,20 +24,76 @@ export default function ConnectionsPanel() {
   const [teleTesting, setTeleTesting] = useState(false);
 
   const [calendarLinked, setCalendarLinked] = useState(true);
-  const [brainPath, setBrainPath] = useState('~/.connect-ai-brain');
+  const [brainPath, setBrainPath] = useState('~/.marucompany-brain');
 
-  // 설정값 변경 시 localStorage 동기화
-  useEffect(() => {
-    localStorage.setItem('connect-ai-llm-type', llmType);
-  }, [llmType]);
+  const [backendSync, setBackendSync] = useState<'connected' | 'disconnected'>('disconnected');
 
+  // 백엔드 Hono API 연동 로드 (Mount)
   useEffect(() => {
-    localStorage.setItem('connect-ai-llm-url', llmUrl);
-  }, [llmUrl]);
+    const fetchSettingsFromBackend = async () => {
+      try {
+        const res = await fetch('http://localhost:8000/api/settings');
+        if (res.ok) {
+          const data = await res.json();
+          // 백엔드 설정을 상태 및 로컬 스토리지에 동기화
+          setLlmType(data.llm_type);
+          setLlmUrl(data.llm_url);
+          setLlmModel(data.llm_model || '');
+          setTeleToken(data.telegram_token || '');
+          setChatId(data.chat_id || '');
+          setCalendarLinked(data.calendar_linked);
+          setBrainPath(data.brain_path || '');
+          setBackendSync('connected');
+          console.log('📶 PostgreSQL 백엔드 데이터베이스로부터 설정을 안전하게 동기화했습니다.');
+        } else {
+          setBackendSync('disconnected');
+        }
+      } catch {
+        setBackendSync('disconnected'); // 백엔드 오프라인 시 로컬 스토리지 모드 자동 유지
+      }
+    };
+    fetchSettingsFromBackend();
+  }, []);
 
-  useEffect(() => {
-    localStorage.setItem('connect-ai-llm-model', llmModel);
-  }, [llmModel]);
+  // 설정 저장 처리 함수 (로컬 + 백엔드 DB 동시 영구 저장)
+  const saveSettings = async (
+    type: LLMEngineType,
+    url: string,
+    model: string,
+    token: string,
+    cId: string,
+    calendar: boolean,
+    path: string
+  ) => {
+    // 1. 로컬 스토리지 저장
+    localStorage.setItem('connect-ai-llm-type', type);
+    localStorage.setItem('connect-ai-llm-url', url);
+    localStorage.setItem('connect-ai-llm-model', model);
+
+    // 2. 백엔드 PostgreSQL 저장 시도 (CORS 대응)
+    try {
+      const res = await fetch('http://localhost:8000/api/settings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          llm_type: type,
+          llm_url: url,
+          llm_model: model,
+          telegram_token: token,
+          chat_id: cId,
+          calendar_linked: calendar,
+          brain_path: path,
+        }),
+      });
+      if (res.ok) {
+        setBackendSync('connected');
+      } else {
+        setBackendSync('disconnected');
+      }
+    } catch {
+      setBackendSync('disconnected');
+    }
+  };
 
   const handleEngineChange = (type: LLMEngineType) => {
     setLlmType(type);
@@ -61,6 +117,8 @@ export default function ConnectionsPanel() {
     setLlmUrl(defaultUrl);
     setLlmModel(defaultModel);
     setPingStatus('idle');
+    
+    saveSettings(type, defaultUrl, defaultModel, teleToken, chatId, calendarLinked, brainPath);
   };
 
   const testLlmPing = async () => {
@@ -100,15 +158,30 @@ export default function ConnectionsPanel() {
     <div className="flex flex-col h-full space-y-4 p-4 overflow-y-auto relative select-none font-sans">
       
       {/* 타이틀 헤더 */}
-      <div className="bg-obsidian-card p-4 rounded-xl border border-obsidian-border flex items-center gap-3 glass-panel">
-        <div className="p-2.5 bg-electric-cyan/15 rounded-lg border border-electric-cyan/20">
-          <Settings className="w-5 h-5 text-electric-cyan" />
+      <div className="bg-obsidian-card p-4 rounded-xl border border-obsidian-border flex items-center justify-between glass-panel">
+        <div className="flex items-center gap-3">
+          <div className="p-2.5 bg-electric-cyan/15 rounded-lg border border-electric-cyan/20">
+            <Settings className="w-5 h-5 text-electric-cyan" />
+          </div>
+          <div>
+            <h2 className="text-sm font-bold text-gray-200">외부 시스템 API 연결 제어판</h2>
+            <p className="text-[10px] text-gray-400 mt-0.5">
+              로컬 및 외부 기기 인공지능(LLM) 커넥션 진단 및 텔레그램, 구글 캘린더, 로컬 지식 리포지토리 연동 관리
+            </p>
+          </div>
         </div>
-        <div>
-          <h2 className="text-sm font-bold text-gray-200">외부 시스템 API 연결 제어판</h2>
-          <p className="text-[10px] text-gray-400 mt-0.5">
-            로컬 및 외부 기기 인공지능(LLM) 커넥션 진단 및 텔레그램, 구글 캘린더, 로컬 지식 리포지토리 연동 관리
-          </p>
+
+        {/* 백엔드 데이터베이스 연결 상태 */}
+        <div className="flex items-center gap-1.5 font-mono text-[9px] font-bold">
+          {backendSync === 'connected' ? (
+            <span className="flex items-center gap-1 text-emerald-400 bg-emerald-950/40 border border-emerald-500/20 px-2.5 py-1 rounded-full">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" /> 🛢️ PostgreSQL 백엔드 영구 보존 동기화 활성
+            </span>
+          ) : (
+            <span className="flex items-center gap-1 text-amber-400 bg-amber-950/40 border border-amber-500/20 px-2.5 py-1 rounded-full">
+              ⚠️ 백엔드 미동기화 (로컬 브라우저 백업 가동)
+            </span>
+          )}
         </div>
       </div>
 
@@ -178,7 +251,10 @@ export default function ConnectionsPanel() {
               <input
                 type="text"
                 value={llmUrl}
-                onChange={(e) => setLlmUrl(e.target.value)}
+                onChange={(e) => {
+                  setLlmUrl(e.target.value);
+                  saveSettings(llmType, e.target.value, llmModel, teleToken, chatId, calendarLinked, brainPath);
+                }}
                 placeholder="예: http://192.168.1.100:11434"
                 className="bg-obsidian border border-obsidian-border rounded-lg px-3 py-2 text-gray-200 focus:outline-none focus:border-electric-cyan font-mono"
               />
@@ -189,7 +265,10 @@ export default function ConnectionsPanel() {
               <input
                 type="text"
                 value={llmModel}
-                onChange={(e) => setLlmModel(e.target.value)}
+                onChange={(e) => {
+                  setLlmModel(e.target.value);
+                  saveSettings(llmType, llmUrl, e.target.value, teleToken, chatId, calendarLinked, brainPath);
+                }}
                 placeholder="비우면 기본 지정 모델 사용"
                 className="bg-obsidian border border-obsidian-border rounded-lg px-3 py-2 text-gray-200 focus:outline-none focus:border-electric-cyan font-mono"
               />
@@ -239,7 +318,10 @@ export default function ConnectionsPanel() {
               <input
                 type="password"
                 value={teleToken}
-                onChange={(e) => setTeleToken(e.target.value)}
+                onChange={(e) => {
+                  setTeleToken(e.target.value);
+                  saveSettings(llmType, llmUrl, llmModel, e.target.value, chatId, calendarLinked, brainPath);
+                }}
                 className="bg-obsidian border border-obsidian-border rounded-lg px-3 py-2 text-gray-200 focus:outline-none focus:border-electric-cyan font-mono"
               />
             </div>
@@ -289,8 +371,10 @@ export default function ConnectionsPanel() {
 
               <button
                 onClick={() => {
-                  setCalendarLinked(!calendarLinked);
-                  alert(`구글 캘린더 OAuth 연결이 ${!calendarLinked ? '활성화' : '해제'}되었습니다.`);
+                  const targetLink = !calendarLinked;
+                  setCalendarLinked(targetLink);
+                  saveSettings(llmType, llmUrl, llmModel, teleToken, chatId, targetLink, brainPath);
+                  alert(`구글 캘린더 OAuth 연결이 ${targetLink ? '활성화' : '해제'}되었습니다.`);
                 }}
                 className={`px-3 py-1 rounded text-[10px] font-bold transition ${
                   calendarLinked ? 'bg-red-950/40 border border-red-500/30 text-red-400 hover:bg-red-900/40' : 'bg-emerald-500 text-obsidian hover:bg-emerald-400'
@@ -315,7 +399,10 @@ export default function ConnectionsPanel() {
               <input
                 type="text"
                 value={brainPath}
-                onChange={(e) => setBrainPath(e.target.value)}
+                onChange={(e) => {
+                  setBrainPath(e.target.value);
+                  saveSettings(llmType, llmUrl, llmModel, teleToken, chatId, calendarLinked, e.target.value);
+                }}
                 className="bg-obsidian border border-obsidian-border rounded-lg px-3 py-2 text-gray-200 focus:outline-none focus:border-electric-cyan font-mono"
               />
             </div>

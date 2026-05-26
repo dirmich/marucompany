@@ -1,0 +1,18 @@
+{
+  "name": "connect-ai-standalone-server",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "main": "index.ts",
+  "scripts": {
+    "start": "bun run index.ts"
+  },
+  "dependencies": {
+    "hono": "^4.4.2",
+    "postgres": "^3.4.4"
+  },
+  "devDependencies": {
+    "@types/node": "^20.12.12",
+    "typescript": "^5.4.5"
+  }
+}

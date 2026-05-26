@@ -20,20 +20,13 @@ interface DispatchStep {
 }
 
 export default function CooperativeChat() {
-  const [messages, setMessages] = useState<ChatMessage[]>([
-    {
-      id: 'init-1',
-      sender: 'ceo',
-      senderName: 'Jay (CEO)',
-      text: '안녕하세요, 마스터님! Connect AI 자율 가상 오피스에 오신 것을 환영합니다. 무엇을 지시하시겠습니까?\n\n현재 로컬 및 외부 기기(Ollama, LM Studio, Llama.cpp, vLLM) 연동 포맷이 활성화되어 실제 인공지능 서버 통신을 시도합니다.\n\n💡 추천 명령:\n1. "코다리야 병아리 다마고치 게임 만들어줘"\n2. "이번 달 PayPal 실시간 매출 실적 분석해줘"\n3. "내 유튜브 채널 홍보를 위한 자율 에이전트 소집해줘"',
-      timestamp: new Date().toLocaleTimeString(),
-    },
-  ]);
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [inputText, setInputText] = useState('');
   const [isProcessing, setIsProcessing] = useState(false);
   const [dispatchSteps, setDispatchSteps] = useState<DispatchStep[]>([]);
   const [engineConnected, setEngineConnected] = useState<boolean | null>(null);
   const [showGameDemo, setShowGameDemo] = useState<boolean>(false);
+  const [dbSyncActive, setDbSyncActive] = useState<boolean>(false);
   
   // 다마고치 게임 상태 시뮬레이션용
   const [tamagotchi, setTamagotchi] = useState({ hunger: 50, play: 50, sleep: 50 });
@@ -44,22 +37,64 @@ export default function CooperativeChat() {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
-  // 주기적으로 localStorage 기반 API Ping 체크
+  // 1. 마운트 시 PostgreSQL 백엔드에서 대화 내역 전체 로드
+  useEffect(() => {
+    const loadChatHistory = async () => {
+      try {
+        const res = await fetch('http://localhost:8000/api/chat/messages');
+        if (res.ok) {
+          const data = await res.json();
+          if (data.length > 0) {
+            setMessages(data);
+          } else {
+            // 히스토리가 비었을 때 기본 웰컴 배치
+            setMessages([
+              {
+                id: 'init-1',
+                sender: 'ceo',
+                senderName: 'Jay (CEO)',
+                text: '안녕하세요, 마스터님! Maru Company 자율 가상 오피스에 오신 것을 환영합니다. 무엇을 지시하시겠습니까?\n\n현재 로컬 및 외부 기기(Ollama, LM Studio, Llama.cpp, vLLM) 연동 포맷이 활성화되어 실제 인공지능 서버 통신을 시도합니다.\n\n💡 추천 명령:\n1. "코다리야 병아리 다마고치 게임 만들어줘"\n2. "이번 달 PayPal 실시간 매출 실적 분석해줘"\n3. "내 유튜브 채널 홍보를 위한 자율 에이전트 소집해줘"',
+                timestamp: new Date().toLocaleTimeString(),
+              }
+            ]);
+          }
+          setDbSyncActive(true);
+        } else {
+          setDbSyncActive(false);
+          loadDefaultWelcome();
+        }
+      } catch {
+        setDbSyncActive(false);
+        loadDefaultWelcome(); // 백엔드 미동작 시 기본 웰컴
+      }
+    };
+
+    const loadDefaultWelcome = () => {
+      setMessages([
+        {
+          id: 'init-1',
+          sender: 'ceo',
+          senderName: 'Jay (CEO)',
+          text: '안녕하세요, 마스터님! Maru Company 자율 가상 오피스에 오신 것을 환영합니다. 무엇을 지시하시겠습니까?\n\n💡 추천 명령:\n1. "코다리야 병아리 다마고치 게임 만들어줘"\n2. "이번 달 PayPal 실시간 매출 실적 분석해줘"\n3. "내 유튜브 채널 홍보를 위한 자율 에이전트 소집해줘"',
+          timestamp: new Date().toLocaleTimeString(),
+        }
+      ]);
+    };
+
+    loadChatHistory();
+  }, []);
+
+  // 2. 주기적으로 localStorage 기반 API Ping 체크
   useEffect(() => {
     const checkLLMConnection = async () => {
       const type = (localStorage.getItem('connect-ai-llm-type') as LLMEngineType) || 'ollama';
       const url = localStorage.getItem('connect-ai-llm-url') || 'http://127.0.0.1:11434';
       
       try {
-        let pingUrl = `${url}/api/tags`; // ollama default
-        
-        if (type === 'lmstudio') {
-          pingUrl = `${url}/models`;
-        } else if (type === 'llamacpp') {
-          pingUrl = `${url}/health`;
-        } else if (type === 'vllm') {
-          pingUrl = `${url}/models`;
-        }
+        let pingUrl = `${url}/api/tags`;
+        if (type === 'lmstudio') pingUrl = `${url}/models`;
+        else if (type === 'llamacpp') pingUrl = `${url}/health`;
+        else if (type === 'vllm') pingUrl = `${url}/models`;
 
         const res = await fetch(pingUrl);
         if (res.ok) setEngineConnected(true);
@@ -70,9 +105,22 @@ export default function CooperativeChat() {
     };
 
     checkLLMConnection();
-    const interval = setInterval(checkLLMConnection, 10000); // 10초마다 상태 리프레시
+    const interval = setInterval(checkLLMConnection, 10000);
     return () => clearInterval(interval);
   }, []);
+
+  // 메시지 백엔드 DB 저장 헬퍼 함수
+  const saveMessageToBackend = async (msg: ChatMessage) => {
+    try {
+      await fetch('http://localhost:8000/api/chat/messages', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(msg),
+      });
+    } catch (err) {
+      console.log('메시지 데이터베이스 동기화 실패 (오프라인 모드로 자동 보정)');
+    }
+  };
 
   const handleSend = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -82,7 +130,7 @@ export default function CooperativeChat() {
     setInputText('');
     setIsProcessing(true);
 
-    // 1. 유저 메시지 추가
+    // 1. 유저 메시지 추가 및 백엔드 DB 보관
     const userMsg: ChatMessage = {
       id: `user-${Date.now()}`,
       sender: 'user',
@@ -91,6 +139,7 @@ export default function CooperativeChat() {
       timestamp: new Date().toLocaleTimeString(),
     };
     setMessages((prev) => [...prev, userMsg]);
+    saveMessageToBackend(userMsg);
 
     // 2. 가상 사무실에 회의 이벤트 전송
     const event = new CustomEvent('ai-dispatch-mission', {
@@ -138,7 +187,6 @@ export default function CooperativeChat() {
           aiResponseText = data.response;
 
         } else if (currentType === 'lmstudio' || currentType === 'vllm') {
-          // OpenAI 호환 엔드포인트
           const res = await fetch(`${currentUrl}/chat/completions`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -165,16 +213,15 @@ export default function CooperativeChat() {
         }
 
         if (aiResponseText) {
-          setMessages((prev) => [
-            ...prev,
-            {
-              id: `ceo-${Date.now()}`,
-              sender: 'ceo',
-              senderName: 'Jay (CEO)',
-              text: aiResponseText,
-              timestamp: new Date().toLocaleTimeString(),
-            },
-          ]);
+          const ceoMsg: ChatMessage = {
+            id: `ceo-${Date.now()}`,
+            sender: 'ceo',
+            senderName: 'Jay (CEO)',
+            text: aiResponseText,
+            timestamp: new Date().toLocaleTimeString(),
+          };
+          setMessages((prev) => [...prev, ceoMsg]);
+          saveMessageToBackend(ceoMsg);
           setDispatchSteps((prev) => prev.map((step) => ({ ...step, status: 'done' })));
           setIsProcessing(false);
           return;
@@ -185,7 +232,7 @@ export default function CooperativeChat() {
       }
     }
 
-    // 5. Intelligent Simulator Fallback (실제 기기가 오프라인이거나 통신 장애 시)
+    // 5. Intelligent Simulator Fallback (오프라인/통신 장애 대비)
     const normalizedText = userText.toLowerCase();
 
     if (normalizedText.includes('게임') || normalizedText.includes('다마고치') || normalizedText.includes('코다리')) {
@@ -204,6 +251,7 @@ export default function CooperativeChat() {
         timestamp: new Date().toLocaleTimeString(),
       };
       setMessages((prev) => [...prev, devMsg]);
+      saveMessageToBackend(devMsg);
       setShowGameDemo(true);
 
       await new Promise((resolve) => setTimeout(resolve, 1500));
@@ -225,6 +273,7 @@ export default function CooperativeChat() {
         timestamp: new Date().toLocaleTimeString(),
       };
       setMessages((prev) => [...prev, bizMsg]);
+      saveMessageToBackend(bizMsg);
 
       await new Promise((resolve) => setTimeout(resolve, 1500));
       setDispatchSteps((prev) => prev.map((step) => ({ ...step, status: 'done' })));
@@ -243,6 +292,7 @@ export default function CooperativeChat() {
         timestamp: new Date().toLocaleTimeString(),
       };
       setMessages((prev) => [...prev, ceoMsg]);
+      saveMessageToBackend(ceoMsg);
     }
 
     setIsProcessing(false);
@@ -265,14 +315,24 @@ export default function CooperativeChat() {
             <span className="text-xs font-mono font-bold tracking-wider text-gray-200">CORPORATE CHAT</span>
           </div>
 
-          <div className="flex items-center gap-1.5 font-mono text-[9px] font-bold">
+          <div className="flex items-center gap-2 font-mono text-[9px] font-bold">
+            {dbSyncActive ? (
+              <span className="text-emerald-400 bg-emerald-950/40 border border-emerald-500/20 px-2 py-0.5 rounded-full">
+                🛢️ PostgreSQL 대화 저장 보존 활성
+              </span>
+            ) : (
+              <span className="text-gray-400 bg-slate-900 border border-slate-800 px-2 py-0.5 rounded-full font-sans">
+                임시 세션 모드
+              </span>
+            )}
+            
             {engineConnected ? (
               <span className="flex items-center gap-1 text-emerald-400 bg-emerald-950/40 border border-emerald-500/20 px-2 py-0.5 rounded-full">
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-ping" /> AI API 연동 활성화
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-ping" /> AI API 활성
               </span>
             ) : (
               <span className="flex items-center gap-1 text-amber-400 bg-amber-950/40 border border-amber-500/20 px-2 py-0.5 rounded-full font-sans">
-                ⚠️ 외부 AI 오프라인 (시뮬레이션 모드)
+                ⚠️ AI 오프라인 (시뮬레이션)
               </span>
             )}
           </div>

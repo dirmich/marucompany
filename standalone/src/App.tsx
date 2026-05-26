@@ -19,10 +19,10 @@ export default function App() {
           {/* 로고 & 브랜딩 */}
           <div className="flex items-center gap-2.5 px-2">
             <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-electric-cyan to-electric-violet flex items-center justify-center shadow-[0_0_20px_rgba(0,240,255,0.4)]">
-              <span className="text-xl">🤖</span>
+              <span className="text-xl">🏢</span>
             </div>
             <div className="flex flex-col">
-              <span className="text-sm font-extrabold tracking-widest text-white font-sans uppercase">Connect AI</span>
+              <span className="text-sm font-extrabold tracking-widest text-white font-sans uppercase">Maru Company</span>
               <span className="text-[9px] text-electric-cyan font-mono tracking-wider font-bold">STANDALONE V2.0</span>
             </div>
           </div>

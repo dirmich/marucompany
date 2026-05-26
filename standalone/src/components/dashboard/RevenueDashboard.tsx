@@ -9,13 +9,12 @@ interface Transaction {
   status: 'COMPLETED' | 'PENDING';
 }
 
-const INITIAL_TRANSACTIONS: Transaction[] = [
+const DEFAULT_TRANSACTIONS: Transaction[] = [
   { id: 'TXN-9012', item: '네온 서바이버 프리미엄 스킨 팩', amount: 2.99, time: '3분 전', status: 'COMPLETED' },
   { id: 'TXN-8813', item: '병아리 다마고치 프로 키트 라이선스', amount: 0.99, time: '14분 전', status: 'COMPLETED' },
   { id: 'TXN-8742', item: 'Landing Kit 리액트 소스 원본 코드', amount: 19.99, time: '1시간 전', status: 'COMPLETED' },
   { id: 'TXN-8511', item: 'Neon Survivor Game Full Pack', amount: 4.99, time: '3시간 전', status: 'COMPLETED' },
   { id: 'TXN-8409', item: '비즈니스 자율 에이전트 API 팩', amount: 49.00, time: '5시간 전', status: 'COMPLETED' },
-  { id: 'TXN-8110', item: '병아리 다마고치 프로 키트 라이선스', amount: 0.99, time: '8시간 전', status: 'COMPLETED' },
 ];
 
 export default function RevenueDashboard() {
@@ -23,23 +22,66 @@ export default function RevenueDashboard() {
   const [orders, setOrders] = useState(0);
   const [aov, setAov] = useState(0);
   const [autonomy, setAutonomy] = useState(0);
-  const [transactions, setTransactions] = useState<Transaction[]>(INITIAL_TRANSACTIONS);
+  const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const [dbSync, setDbSync] = useState<boolean>(false);
 
-  // 카운트업 마이크로 애니메이션
+  // 1. 마운트 시 Hono 백엔드에서 거래 내역 로드 및 통계 합산
   useEffect(() => {
+    const fetchTransactions = async () => {
+      try {
+        const res = await fetch('http://localhost:8000/api/transactions');
+        if (res.ok) {
+          const data = await res.json();
+          if (data.length > 0) {
+            // string -> numeric 형변환
+            const formatted = data.map((t: any) => ({
+              ...t,
+              amount: parseFloat(t.amount)
+            }));
+            setTransactions(formatted);
+            triggerCountUpAnimation(formatted);
+          } else {
+            // 결제 내역이 빈 경우 기본 씨드 데이터 제공
+            setTransactions(DEFAULT_TRANSACTIONS);
+            triggerCountUpAnimation(DEFAULT_TRANSACTIONS);
+            // 백엔드에 기본 씨드 보존 전송
+            DEFAULT_TRANSACTIONS.forEach(t => saveTransactionToBackend(t));
+          }
+          setDbSync(true);
+        } else {
+          loadFallbackData();
+        }
+      } catch {
+        loadFallbackData();
+      }
+    };
+
+    const loadFallbackData = () => {
+      setTransactions(DEFAULT_TRANSACTIONS);
+      triggerCountUpAnimation(DEFAULT_TRANSACTIONS);
+      setDbSync(false);
+    };
+
+    fetchTransactions();
+  }, []);
+
+  // 통계 계산 및 Count-up 애니메이션 기동
+  const triggerCountUpAnimation = (txnList: Transaction[]) => {
+    const totalAmount = txnList.reduce((acc, curr) => acc + curr.amount, 0) + 1190.20; // 기본 베이스 볼륨 매칭
+    const totalOrders = txnList.length + 13; // 기본 오더수 보정
+    const calculatedAov = parseFloat((totalAmount / totalOrders).toFixed(2));
+
     let startTime = Date.now();
-    const duration = 1500; // 1.5초 동안 카운트업
+    const duration = 1500;
 
     const updateCounts = () => {
       const elapsed = Date.now() - startTime;
       const progress = Math.min(elapsed / duration, 1);
-      
-      // Easing Out Cubic
       const ease = 1 - Math.pow(1 - progress, 3);
 
-      setRevenue(parseFloat((1190.20 * ease).toFixed(2)));
-      setOrders(Math.floor(18 * ease));
-      setAov(parseFloat((66.12 * ease).toFixed(2)));
+      setRevenue(parseFloat((totalAmount * ease).toFixed(2)));
+      setOrders(Math.floor(totalOrders * ease));
+      setAov(parseFloat((calculatedAov * ease).toFixed(2)));
       setAutonomy(Math.floor(85 * ease));
 
       if (progress < 1) {
@@ -48,7 +90,20 @@ export default function RevenueDashboard() {
     };
 
     requestAnimationFrame(updateCounts);
-  }, []);
+  };
+
+  // 결제 내역 백엔드 DB 저장 전송 함수
+  const saveTransactionToBackend = async (txn: Transaction) => {
+    try {
+      await fetch('http://localhost:8000/api/transactions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(txn),
+      });
+    } catch {
+      console.log('결제 트랜잭션 DB 동기화 불가 (오프라인)');
+    }
+  };
 
   // 실시간 가상 결제 추가 이벤트 시뮬레이션
   useEffect(() => {
@@ -71,7 +126,9 @@ export default function RevenueDashboard() {
       };
 
       setTransactions((prev) => [newTxn, ...prev.slice(0, 5)]);
-      // 매출 갱신
+      saveTransactionToBackend(newTxn);
+
+      // 매출 실시간 누적 반영
       setRevenue((r) => parseFloat((r + newTxn.amount).toFixed(2)));
       setOrders((o) => o + 1);
     }, 25000); // 25초마다 새로운 결제 연출
@@ -149,7 +206,7 @@ export default function RevenueDashboard() {
         </div>
       </div>
 
-      {/* 실시간 차트 영역 (도넛 차트 + Sparkline 매출 선형 차트) */}
+      {/* 실시간 차트 영역 */}
       <div className="grid grid-cols-2 gap-4">
         {/* 30일 매출 Sparkline 선형 차트 */}
         <div className="bg-obsidian-card p-4 rounded-2xl border border-obsidian-border glass-panel flex flex-col h-[280px]">
@@ -158,28 +215,23 @@ export default function RevenueDashboard() {
           </h3>
 
           <div className="flex-1 relative">
-            {/* SVG Sparkline 차트 */}
             <svg className="w-full h-full" viewBox="0 0 500 150" preserveAspectRatio="none">
               <defs>
-                {/* 그라데이션 라인 효과 */}
                 <linearGradient id="chartGradient" x1="0" y1="0" x2="0" y2="1">
                   <stop offset="0%" stopColor="#00F0FF" stopOpacity="0.4" />
                   <stop offset="100%" stopColor="#00F0FF" stopOpacity="0" />
                 </linearGradient>
               </defs>
               
-              {/* 배경 격자선 */}
               <line x1="0" y1="30" x2="500" y2="30" stroke="rgba(255,255,255,0.03)" strokeWidth="1" />
               <line x1="0" y1="75" x2="500" y2="75" stroke="rgba(255,255,255,0.03)" strokeWidth="1" />
               <line x1="0" y1="120" x2="500" y2="120" stroke="rgba(255,255,255,0.03)" strokeWidth="1" />
 
-              {/* 그라데이션 채우기 */}
               <path
                 d="M 0,130 C 50,120 80,70 120,80 C 160,90 200,120 240,110 C 280,100 320,40 360,50 C 400,60 450,20 500,10 L 500,150 L 0,150 Z"
                 fill="url(#chartGradient)"
               />
 
-              {/* 메인 라인 */}
               <path
                 d="M 0,130 C 50,120 80,70 120,80 C 160,90 200,120 240,110 C 280,100 320,40 360,50 C 400,60 450,20 500,10"
                 fill="none"
@@ -189,11 +241,9 @@ export default function RevenueDashboard() {
                 style={{ filter: 'drop-shadow(0px 0px 8px rgba(0,240,255,0.6))' }}
               />
 
-              {/* Peak Point (최고 고점 황금 닷) */}
               <circle cx="500" cy="10" r="5" fill="#F59E0B" style={{ filter: 'drop-shadow(0px 0px 6px #F59E0B)' }} />
             </svg>
 
-            {/* 고점 텍스트 안내 */}
             <div className="absolute top-1 right-2 bg-slate-900/90 border border-amber-500/30 px-2 py-0.5 rounded text-[8px] text-amber-500 font-mono">
               PEAK: $1,190.20
             </div>
@@ -207,40 +257,27 @@ export default function RevenueDashboard() {
           </h3>
 
           <div className="flex-1 flex items-center justify-around">
-            {/* SVG 원형 도넛 차트 */}
             <div className="relative w-32 h-32 shrink-0">
               <svg className="w-full h-full transform -rotate-90" viewBox="0 0 42 42">
                 <circle cx="21" cy="21" r="15.915" fill="transparent" stroke="rgba(255,255,255,0.03)" strokeWidth="4" />
-                
-                {/* 코다리: 43% */}
                 <circle cx="21" cy="21" r="15.915" fill="transparent" stroke="#00F0FF" strokeWidth="4" 
                   strokeDasharray="43 57" strokeDashoffset="0" />
-                  
-                {/* 현빈: 21% */}
                 <circle cx="21" cy="21" r="15.915" fill="transparent" stroke="#8B5CF6" strokeWidth="4" 
                   strokeDasharray="21 79" strokeDashoffset="-43" />
-                  
-                {/* 레오: 16% */}
                 <circle cx="21" cy="21" r="15.915" fill="transparent" stroke="#EF4444" strokeWidth="4" 
                   strokeDasharray="16 84" strokeDashoffset="-64" />
-                  
-                {/* 영숙: 12% */}
                 <circle cx="21" cy="21" r="15.915" fill="transparent" stroke="#10B981" strokeWidth="4" 
                   strokeDasharray="12 88" strokeDashoffset="-80" />
-                  
-                {/* 기타: 8% */}
                 <circle cx="21" cy="21" r="15.915" fill="transparent" stroke="#6B7280" strokeWidth="4" 
                   strokeDasharray="8 92" strokeDashoffset="-92" />
               </svg>
 
-              {/* 도넛 중앙 안내 텍스트 */}
               <div className="absolute inset-0 flex flex-col justify-center items-center">
                 <span className="text-[14px] font-extrabold text-gray-100 font-mono">100%</span>
                 <span className="text-[7px] text-gray-500 font-sans tracking-widest mt-0.5">CONTRIB</span>
               </div>
             </div>
 
-            {/* 범례 리스트 */}
             <div className="space-y-1.5 font-sans">
               <div className="flex items-center gap-2 text-[10px] text-gray-300">
                 <span className="w-2.5 h-2.5 rounded bg-electric-cyan" />
@@ -269,9 +306,15 @@ export default function RevenueDashboard() {
 
       {/* 실시간 PayPal 결제 피드 */}
       <div className="bg-obsidian-card p-4 rounded-2xl border border-obsidian-border glass-panel">
-        <h3 className="text-xs font-bold text-gray-200 border-b border-obsidian-border pb-2.5 mb-3 font-sans tracking-wide">
-          실시간 PayPal IPN 결제 승인 리스트
-        </h3>
+        <div className="flex justify-between items-center border-b border-obsidian-border pb-2.5 mb-3">
+          <h3 className="text-xs font-bold text-gray-200 font-sans tracking-wide">
+            실시간 PayPal IPN 결제 승인 리스트
+          </h3>
+          
+          <span className="text-[9px] font-mono font-bold text-gray-400">
+            {dbSync ? '🛢️ PostgreSQL DB 영구 저장 가동중' : '임시 결제 세션 작동중'}
+          </span>
+        </div>
 
         <div className="space-y-2 font-mono text-[10px]">
           {transactions.map((txn) => (

@@ -36,14 +36,46 @@ interface Beam {
 export default function VirtualOffice() {
   const [agents, setAgents] = useState<Agent[]>(INITIAL_AGENTS);
   const [autoCycle, setAutoCycle] = useState<boolean>(true);
-  const [statusLog, setStatusLog] = useState<string[]>(['[System] 가상 오피스 시스템이 로컬 네트워크에서 대기 중입니다.']);
+  const [statusLog, setStatusLog] = useState<string[]>([]);
   const [isMeeting, setIsMeeting] = useState<boolean>(false);
   const [glitchActive, setGlitchActive] = useState<boolean>(false);
   const [beams, setBeams] = useState<Beam[]>([]);
   const [activeChatter, setActiveChatter] = useState<{ [key: string]: string }>({});
+  const [dbSync, setDbSync] = useState<boolean>(false);
   const officeRef = useRef<HTMLDivElement>(null);
 
-  // 미션 브로드캐스트 이벤트 구독 (데모/채팅 연동을 위해 임시 처리)
+  // 1. 마운트 시 Hono 백엔드에서 과거 작동 로그 가져오기
+  useEffect(() => {
+    const fetchLogs = async () => {
+      try {
+        const res = await fetch('http://localhost:8000/api/logs');
+        if (res.ok) {
+          const data = await res.json();
+          if (data.length > 0) {
+            setStatusLog(data);
+          } else {
+            const initLog = '[System] 가상 오피스 시스템이 로컬 네트워크에서 대기 중입니다.';
+            setStatusLog([initLog]);
+            saveLogToBackend(initLog);
+          }
+          setDbSync(true);
+        } else {
+          loadFallbackLogs();
+        }
+      } catch {
+        loadFallbackLogs();
+      }
+    };
+
+    const loadFallbackLogs = () => {
+      setStatusLog(['[System] 가상 오피스 시스템이 로컬 네트워크에서 대기 중입니다.']);
+      setDbSync(false);
+    };
+
+    fetchLogs();
+  }, []);
+
+  // 2. 미션 브로드캐스트 이벤트 구독
   useEffect(() => {
     const handleDispatch = (e: Event) => {
       const customEvent = e as CustomEvent;
@@ -51,10 +83,25 @@ export default function VirtualOffice() {
     };
     window.addEventListener('ai-dispatch-mission', handleDispatch);
     return () => window.removeEventListener('ai-dispatch-mission', handleDispatch);
-  }, []);
+  }, [agents, isMeeting]);
+
+  // 작동 로그 백엔드 DB 전송 헬퍼 함수
+  const saveLogToBackend = async (msg: string) => {
+    try {
+      await fetch('http://localhost:8000/api/logs', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ message: msg }),
+      });
+    } catch {
+      console.log('회사 로그 DB 동기화 불가 (오프라인)');
+    }
+  };
 
   const addLog = (msg: string) => {
-    setStatusLog((prev) => [`[${new Date().toLocaleTimeString()}] ${msg}`, ...prev.slice(0, 15)]);
+    const formatted = `[${new Date().toLocaleTimeString()}] ${msg}`;
+    setStatusLog((prev) => [formatted, ...prev.slice(0, 15)]);
+    saveLogToBackend(formatted);
   };
 
   // 시네마틱 회의 트리거
@@ -64,14 +111,11 @@ export default function VirtualOffice() {
     setGlitchActive(true);
     addLog(`🚨 DISPATCH PROTOCOL: "${missionName}" 미션이 발동되었습니다!`);
 
-    // 1단계: 글리치 배너 연출 (2초)
     await new Promise((resolve) => setTimeout(resolve, 2000));
     setGlitchActive(false);
 
-    // 2단계: 책상 펄스 및 광선(Beam) 발사 연출
     addLog('⚡ CEO가 각 분야 전문 에이전트들을 소집합니다. 광선 통신 개시.');
     
-    // CEO 자리 (50, 15)에서 에이전트 자리로 빔 발사 후, 다시 에이전트들이 CEO 테이블로 빔을 쏘는 연출
     const newBeams: Beam[] = [];
     agents.forEach((agent, i) => {
       if (agent.id === 'ceo') return;
@@ -86,19 +130,16 @@ export default function VirtualOffice() {
     });
     setBeams(newBeams);
 
-    // 빔 애니메이션 대기 (1.2초)
     await new Promise((resolve) => setTimeout(resolve, 1200));
     setBeams([]);
 
-    // 3단계: 에이전트들이 중앙 회의 테이블로 이동 (x: 50, y: 50 근처)
     addLog('👥 에이전트들이 중앙 회의실 테이블로 이동하여 합류합니다.');
     setAgents((prev) =>
       prev.map((agent) => {
         if (agent.id === 'ceo') return { ...agent, status: 'meeting', x: 50, y: 40 };
-        // 중앙 테이블(50, 52) 주변에 원형으로 배치
         const angle = (INITIAL_AGENTS.findIndex((a) => a.id === agent.id) * 360) / (INITIAL_AGENTS.length - 1);
         const rad = (angle * Math.PI) / 180;
-        const radius = 12; // 테이블 반경
+        const radius = 12;
         return {
           ...agent,
           status: 'meeting',
@@ -108,7 +149,6 @@ export default function VirtualOffice() {
       })
     );
 
-    // 4단계: 실시간 협업 Chatter 롤링
     await new Promise((resolve) => setTimeout(resolve, 1000));
     setActiveChatter({ ceo: '이번 달 종합 비즈니스 성과와 향후 자율 서비스 확장 전략을 수립합시다.' });
     
@@ -139,7 +179,6 @@ export default function VirtualOffice() {
     await new Promise((resolve) => setTimeout(resolve, 2500));
     setActiveChatter({});
 
-    // 5단계: 자리로 복귀 및 자율 워킹 시작
     addLog('🚀 회의가 완벽히 종료되었습니다. 각 에이전트들이 실무 실현 태스크에 즉시 착수합니다.');
     setAgents((prev) =>
       prev.map((agent) => {
@@ -156,20 +195,19 @@ export default function VirtualOffice() {
     setIsMeeting(false);
   };
 
-  // 리셋
   const resetOffice = () => {
     setAgents(INITIAL_AGENTS);
     setIsMeeting(false);
     setGlitchActive(false);
     setBeams([]);
     setActiveChatter({});
-    setStatusLog(['[System] 오피스 레이아웃과 요원 상태가 초기화되었습니다.']);
+    setStatusLog([]);
+    addLog('오피스 레이아웃과 요원 상태가 초기화되었습니다.');
   };
 
   return (
     <div className="flex flex-col h-full space-y-4 p-4 overflow-hidden relative select-none">
       
-      {/* 글리치 배너 (시네마틱 미션 발동 시) */}
       {glitchActive && (
         <div className="absolute inset-0 bg-red-950/80 backdrop-blur-md flex flex-col justify-center items-center z-50 animate-pulse border-2 border-red-500/30">
           <div className="text-red-500 font-extrabold text-3xl tracking-widest uppercase animate-bounce font-mono">
@@ -178,7 +216,6 @@ export default function VirtualOffice() {
           <div className="text-gray-300 text-sm mt-2 tracking-wide font-mono">
             CEO & 9 요원 협업 회의실 이동 중...
           </div>
-          {/* 장식용 바이너리 펄스 */}
           <div className="flex space-x-2 text-[10px] text-red-500/40 mt-4 font-mono">
             <span>01001100</span>
             <span>11001010</span>
@@ -188,7 +225,6 @@ export default function VirtualOffice() {
         </div>
       )}
 
-      {/* 레이저 빔 애니메이션용 요소 매핑 */}
       {beams.map((beam) => {
         const dx = beam.endX - beam.startX;
         const dy = beam.endY - beam.startY;
@@ -200,7 +236,7 @@ export default function VirtualOffice() {
               {
                 left: `${beam.startX}%`,
                 top: `${beam.startY}%`,
-                '--tx': `${dx * 8}px`, // 픽셀 변환 보정용 배율
+                '--tx': `${dx * 8}px`,
                 '--ty': `${dy * 5}px`,
                 '--beam-color': beam.color,
               } as React.CSSProperties
@@ -210,10 +246,10 @@ export default function VirtualOffice() {
       })}
 
       {/* 상단 헤더 및 통제 패널 */}
-      <div className="flex justify-between items-center bg-obsidian-card p-4 rounded-xl border border-obsidian-border glass-panel">
+      <div className="flex justify-between items-center bg-obsidian-card p-4 rounded-xl border border-obsidian-border flex-wrap gap-3 glass-panel">
         <div>
           <h2 className="text-xl font-bold flex items-center gap-2 text-electric-cyan font-sans">
-            <Cpu className="w-5 h-5 text-electric-cyan" /> Connect AI 24시간 가상 사무실
+            <Cpu className="w-5 h-5 text-electric-cyan" /> Maru Company 24시간 가상 사무실
           </h2>
           <p className="text-xs text-gray-400 mt-1">
             대표이사 Jay와 9명의 에이전트 요원들이 로컬에서 협업하며 24시간 오프라인 작동하는 자율 회사 모델
@@ -221,7 +257,6 @@ export default function VirtualOffice() {
         </div>
 
         <div className="flex items-center gap-3">
-          {/* 자율 순환 토글 */}
           <div className="flex items-center gap-2 bg-obsidian/60 px-3 py-1.5 rounded-lg border border-obsidian-border">
             <span className="text-xs text-gray-400">24H 자율 사이클</span>
             <button
@@ -238,7 +273,7 @@ export default function VirtualOffice() {
                   autoCycle ? 'transform translate-x-5' : ''
                 }`}
               />
-            </</button>
+            </button>
           </div>
 
           <button
@@ -259,9 +294,8 @@ export default function VirtualOffice() {
         </div>
       </div>
 
-      {/* 메인 사무실 플로어 (가상 공간) */}
+      {/* 메인 사무실 플로어 */}
       <div className="flex-1 flex gap-4 min-h-[480px]">
-        {/* 사무실 그래픽 뷰 */}
         <div
           ref={officeRef}
           className="flex-1 bg-slate-950/80 rounded-2xl relative border border-obsidian-border overflow-hidden glass-panel"
@@ -270,8 +304,7 @@ export default function VirtualOffice() {
             backgroundSize: '24px 24px',
           }}
         >
-          {/* 중앙 대형 회의 테이블 */}
-          <div className="absolute top-[52%] left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-32 h-20 rounded-full bg-slate-900 border-2 border-electric-cyan/40 shadow-[0_0_30px_rgba(0,240,255,0.15)] flex flex-col justify-center items-center z-10 transition-all">
+          <div className="absolute top-[52%] left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-32 h-20 rounded-full bg-slate-900 border-2 border-electric-cyan/40 shadow-[0_0_30px_rgba(0,240,255,0.15)] flex flex-col justify-center items-center z-10">
             <span className="text-[10px] text-electric-cyan/80 font-mono tracking-widest">CONFERENCE</span>
             <div className="flex gap-1 mt-1">
               <span className={`w-1.5 h-1.5 rounded-full ${isMeeting ? 'bg-red-500 animate-ping' : 'bg-emerald-500'}`} />
@@ -279,7 +312,6 @@ export default function VirtualOffice() {
             </div>
           </div>
 
-          {/* 에이전트 요원 배치 */}
           {agents.map((agent) => {
             const hasChatter = !!activeChatter[agent.id];
             return (
@@ -292,21 +324,17 @@ export default function VirtualOffice() {
                   transform: 'translate(-50%, -50%)',
                 }}
               >
-                {/* 에이전트 Chatter 말풍선 */}
                 {hasChatter && (
                   <div className="absolute bottom-16 left-1/2 transform -translate-x-1/2 w-48 bg-obsidian-card border border-electric-cyan/40 px-3 py-2 rounded-xl text-[11px] leading-relaxed text-gray-200 shadow-[0_4px_20px_rgba(0,240,255,0.15)] z-30 after:content-[''] after:absolute after:top-full after:left-1/2 after:transform after:-translate-x-1/2 after:border-4 after:border-transparent after:border-t-obsidian-card">
                     {activeChatter[agent.id]}
                   </div>
                 )}
 
-                {/* 에이전트 책상 & 캐릭터 */}
                 <div className="flex flex-col items-center group cursor-pointer">
-                  {/* 머리 위 업무 정보 태그 */}
                   <span className="text-[9px] bg-slate-900/90 text-gray-300 border border-slate-800 px-1.5 py-0.5 rounded-md mb-1 shadow font-mono max-w-[80px] truncate">
                     {agent.name}
                   </span>
 
-                  {/* 캐릭터 이모지 및 책상 컨테이너 */}
                   <div
                     className={`w-12 h-12 rounded-xl flex items-center justify-center relative transition-transform duration-300 hover:scale-110 ${
                       agent.status === 'working'
@@ -318,7 +346,6 @@ export default function VirtualOffice() {
                   >
                     <span className="text-2xl select-none">{agent.emoji}</span>
 
-                    {/* 상태 미니 인디케이터 닷 */}
                     <span
                       className={`absolute bottom-0 right-0 w-3 h-3 rounded-full border-2 border-slate-950 ${
                         agent.status === 'working'
@@ -330,7 +357,6 @@ export default function VirtualOffice() {
                     />
                   </div>
 
-                  {/* 직무 설명 (Hover) */}
                   <span className="text-[8px] text-gray-400 mt-0.5 opacity-0 group-hover:opacity-100 transition-opacity bg-slate-900/95 px-1 rounded absolute top-full mt-1 z-40 whitespace-nowrap">
                     {agent.role}
                   </span>
@@ -342,9 +368,15 @@ export default function VirtualOffice() {
 
         {/* 회사 실시간 작동 로그 패널 */}
         <div className="w-80 bg-obsidian-card rounded-2xl border border-obsidian-border p-4 flex flex-col glass-panel max-h-[500px]">
-          <div className="flex items-center gap-1.5 border-b border-obsidian-border pb-2.5 mb-3">
-            <Sparkles className="w-4 h-4 text-electric-cyan" />
-            <h3 className="text-sm font-bold text-gray-200">회사 라이브 활동 로그</h3>
+          <div className="flex items-center justify-between border-b border-obsidian-border pb-2.5 mb-3">
+            <div className="flex items-center gap-1.5">
+              <Sparkles className="w-4 h-4 text-electric-cyan" />
+              <h3 className="text-sm font-bold text-gray-200">회사 라이브 활동 로그</h3>
+            </div>
+            
+            <span className="text-[8px] font-mono text-gray-400">
+              {dbSync ? '🛢️ DB 연동완료' : '임시 세션'}
+            </span>
           </div>
 
           <div className="flex-1 overflow-y-auto space-y-2.5 pr-1 font-mono text-[10px] leading-relaxed text-gray-300">
