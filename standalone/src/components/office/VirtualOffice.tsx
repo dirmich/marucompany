@@ -10,18 +10,19 @@ interface Agent {
   x: number; // 0 ~ 100 (%)
   y: number; // 0 ~ 100 (%)
   color: string;
+  avatarUrl: string; // 픽셀 캐릭터 이미지 경로
 }
 
 const INITIAL_AGENTS: Agent[] = [
-  { id: 'ceo', name: 'Jay', role: '대표이사 (CEO)', emoji: '👑', status: 'idle', x: 50, y: 15, color: '#F59E0B' },
-  { id: 'dev', name: '코다리', role: '수석 개발자', emoji: '💻', status: 'idle', x: 20, y: 35, color: '#00F0FF' },
-  { id: 'youtube', name: '레오', role: '유튜브 디렉터', emoji: '📺', status: 'idle', x: 20, y: 65, color: '#EF4444' },
-  { id: 'biz', name: '현빈', role: '비즈니스 분석가', emoji: '💼', status: 'idle', x: 80, y: 35, color: '#8B5CF6' },
-  { id: 'finance', name: '영숙', role: '재무 관리자 (CFO)', emoji: '💰', status: 'idle', x: 80, y: 65, color: '#10B981' },
-  { id: 'design', name: '루나', role: 'UI/UX 디자이너', emoji: '🎨', status: 'idle', x: 35, y: 80, color: '#EC4899' },
-  { id: 'security', name: '셜록', role: 'QA & 보안 팀장', emoji: '🔍', status: 'idle', x: 65, y: 80, color: '#3B82F6' },
-  { id: 'writer', name: '아라', role: '수석 카피라이터', emoji: '✍️', status: 'idle', x: 35, y: 45, color: '#F59E0B' },
-  { id: 'media', name: '민우', role: '미디어 아티스트', emoji: '🎵', status: 'idle', x: 65, y: 45, color: '#14B8A6' },
+  { id: 'ceo', name: 'Jay', role: '대표이사 (CEO)', emoji: '👑', status: 'idle', x: 50, y: 15, color: '#F59E0B', avatarUrl: '/assets/pixel/characters/ceo.png' },
+  { id: 'dev', name: '코다리', role: '수석 개발자', emoji: '💻', status: 'idle', x: 20, y: 35, color: '#00F0FF', avatarUrl: '/assets/pixel/characters/developer.png' },
+  { id: 'youtube', name: '레오', role: '유튜브 디렉터', emoji: '📺', status: 'idle', x: 20, y: 65, color: '#EF4444', avatarUrl: '/assets/pixel/characters/youtube.png' },
+  { id: 'biz', name: '현빈', role: '비즈니스 분석가', emoji: '💼', status: 'idle', x: 80, y: 35, color: '#8B5CF6', avatarUrl: '/assets/pixel/characters/business.png' },
+  { id: 'finance', name: '영숙', role: '재무 관리자 (CFO)', emoji: '💰', status: 'idle', x: 80, y: 65, color: '#10B981', avatarUrl: '/assets/pixel/characters/secretary.png' },
+  { id: 'design', name: '루나', role: 'UI/UX 디자이너', emoji: '🎨', status: 'idle', x: 35, y: 80, color: '#EC4899', avatarUrl: '/assets/pixel/characters/designer.png' },
+  { id: 'security', name: '셜록', role: 'QA & 보안 팀장', emoji: '🔍', status: 'idle', x: 65, y: 80, color: '#3B82F6', avatarUrl: '/assets/pixel/characters/researcher.png' },
+  { id: 'writer', name: '아라', role: '수석 카피라이터', emoji: '✍️', status: 'idle', x: 35, y: 45, color: '#F59E0B', avatarUrl: '/assets/pixel/characters/writer.png' },
+  { id: 'media', name: '민우', role: '미디어 아티스트', emoji: '🎵', status: 'idle', x: 65, y: 45, color: '#14B8A6', avatarUrl: '/assets/pixel/characters/editor.png' },
 ];
 
 interface Beam {
@@ -298,13 +299,16 @@ export default function VirtualOffice() {
       <div className="flex-1 flex gap-4 min-h-[480px]">
         <div
           ref={officeRef}
-          className="flex-1 bg-slate-950/80 rounded-2xl relative border border-obsidian-border overflow-hidden glass-panel"
+          className="flex-1 bg-slate-950 rounded-2xl relative border border-obsidian-border overflow-hidden glass-panel shadow-[inset_0_0_40px_rgba(0,0,0,0.8)]"
           style={{
-            backgroundImage: 'radial-gradient(rgba(31, 41, 55, 0.4) 1px, transparent 1px)',
-            backgroundSize: '24px 24px',
+            backgroundImage: "url('/assets/pixel/office/Office_Design_2.gif')",
+            backgroundSize: 'cover',
+            backgroundPosition: 'center',
+            imageRendering: 'pixelated'
           }}
         >
-          <div className="absolute top-[52%] left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-32 h-20 rounded-full bg-slate-900 border-2 border-electric-cyan/40 shadow-[0_0_30px_rgba(0,240,255,0.15)] flex flex-col justify-center items-center z-10">
+          {/* 회의실 중심 반투명 회의 테이블 */}
+          <div className="absolute top-[52%] left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-32 h-20 rounded-full bg-slate-950/70 border-2 border-electric-cyan/40 shadow-[0_0_30px_rgba(0,240,255,0.25)] flex flex-col justify-center items-center z-10 backdrop-blur-sm">
             <span className="text-[10px] text-electric-cyan/80 font-mono tracking-widest">CONFERENCE</span>
             <div className="flex gap-1 mt-1">
               <span className={`w-1.5 h-1.5 rounded-full ${isMeeting ? 'bg-red-500 animate-ping' : 'bg-emerald-500'}`} />
@@ -331,20 +335,32 @@ export default function VirtualOffice() {
                 )}
 
                 <div className="flex flex-col items-center group cursor-pointer">
-                  <span className="text-[11px] bg-slate-900/90 text-gray-300 border border-slate-800 px-1.5 py-0.5 rounded-md mb-1 shadow font-mono max-w-[80px] truncate">
+                  <span className="text-[11px] bg-slate-950/95 text-gray-200 border border-slate-800 px-1.5 py-0.5 rounded-md mb-1 shadow-lg font-mono max-w-[80px] truncate">
                     {agent.name}
                   </span>
 
                   <div
-                    className={`w-12 h-12 rounded-xl flex items-center justify-center relative transition-transform duration-300 hover:scale-110 ${
+                    className={`w-12 h-12 rounded-xl flex items-center justify-center relative transition-all duration-300 hover:scale-110 bg-slate-900/60 ${
                       agent.status === 'working'
                         ? 'border-2 border-emerald-500/80 shadow-[0_0_15px_rgba(16,185,129,0.3)] animate-pulse'
                         : agent.status === 'meeting'
                         ? 'border-2 border-electric-cyan shadow-[0_0_15px_rgba(0,240,255,0.4)]'
-                        : 'border border-slate-700 bg-slate-900'
+                        : 'border border-slate-700'
                     }`}
                   >
-                    <span className="text-2xl select-none">{agent.emoji}</span>
+                    {/* [UPGRADED] 픽셀 스프라이트 중 정면 1번째 프레임(48x48) 크롭 & 40px 업스케일 렌더링 */}
+                    <div
+                      style={{
+                        width: '40px',
+                        height: '40px',
+                        backgroundImage: `url('${agent.avatarUrl}')`,
+                        backgroundPosition: '0px 0px',
+                        backgroundSize: '2240px 1640px', /* 원본 2688x1968 비례 40px 맞춤 축소: 2688*(40/48)=2240, 1968*(40/48)=1640 */
+                        backgroundRepeat: 'no-repeat',
+                        imageRendering: 'pixelated',
+                      }}
+                      className="pixel-avatar-face transition-transform duration-500 hover:rotate-12"
+                    />
 
                     <span
                       className={`absolute bottom-0 right-0 w-3 h-3 rounded-full border-2 border-slate-950 ${
@@ -357,7 +373,7 @@ export default function VirtualOffice() {
                     />
                   </div>
 
-                  <span className="text-[8px] text-gray-400 mt-0.5 opacity-0 group-hover:opacity-100 transition-opacity bg-slate-900/95 px-1 rounded absolute top-full mt-1 z-40 whitespace-nowrap">
+                  <span className="text-[8px] text-gray-400 mt-0.5 opacity-0 group-hover:opacity-100 transition-opacity bg-slate-950/95 px-1 rounded absolute top-full mt-1 z-40 whitespace-nowrap">
                     {agent.role}
                   </span>
                 </div>
