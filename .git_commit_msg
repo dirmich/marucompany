@@ -1,0 +1,9 @@
+refactor: Hono 백엔드 서버 5대 라우터 모듈화 리팩토링 및 외부 LLM 실시간 스캔 자동화 고도화
+
+- 브라우저 CORS 제한 우회를 위한 백엔드 Hono API 프록시 (/api/proxy/models) 구현
+- LLM 오프라인 시에도 드롭다운 선택이 가능한 엔진별 Fallback 권장 모델 리스트 탑재
+- 수동 직접 입력 토글 기능(하이브리드 UX) 제공으로 모델 설정의 높은 유연성 확보
+- 연결 성공 시 자동 모델 바인딩 및 settings 테이블 영구 DB 저장 동기화
+- tsconfig 엄격 검사 대응을 위한 unused imports 및 variables 리팩토링 및 빌드 무결성 검증 완료
+- Hono 백엔드 서버를 5대 독립 라우터 모듈(settings, documents, chat, transactions, logs)로 전면 분리
+- server/index.ts 코드를 40라인 수준으로 경량화하여 서브-라우팅 엔트리포인트로 재구축

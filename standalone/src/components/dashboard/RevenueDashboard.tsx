@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { DollarSign, ShoppingCart, TrendingUp, ShieldCheck, ArrowUpRight } from 'lucide-react';
 
 interface Transaction {

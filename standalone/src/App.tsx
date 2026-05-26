@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import VirtualOffice from './components/office/VirtualOffice';
 import CooperativeChat from './components/chat/CooperativeChat';
 import RevenueDashboard from './components/dashboard/RevenueDashboard';

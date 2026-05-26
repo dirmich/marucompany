@@ -1,7 +1,14 @@
 import React, { useState, useEffect } from 'react';
-import { Settings, Plug, Key, Database, RefreshCcw, CheckCircle, AlertTriangle, Trash2, Plus, BrainCircuit } from 'lucide-react';
+import { Settings, Plug, Key, RefreshCcw, CheckCircle, AlertTriangle, Trash2, Plus, BrainCircuit } from 'lucide-react';
 
 export type LLMEngineType = 'ollama' | 'lmstudio' | 'llamacpp' | 'vllm';
+
+export const FALLBACK_MODELS: Record<LLMEngineType, string[]> = {
+  ollama: ['gemma:2b', 'llama3:latest', 'mistral:latest', 'phi3:latest', 'qwen2.5-coder:latest'],
+  lmstudio: ['qwen2.5-coder-7b', 'meta-llama-3-8b-instruct', 'microsoft-phi-3-medium'],
+  llamacpp: ['llama.cpp-default-server'],
+  vllm: ['meta-llama/Meta-Llama-3-8B-Instruct', 'Qwen/Qwen2.5-Coder-7B-Instruct'],
+};
 
 interface BrainDoc {
   id: number;
@@ -38,6 +45,20 @@ export default function ConnectionsPanel() {
     const saved = localStorage.getItem('connect-ai-available-models');
     return saved ? JSON.parse(saved) : [];
   });
+
+  // ✍️ 수동 직접 입력 토글 상태
+  const [isCustomModel, setIsCustomModel] = useState(false);
+
+  // 마운트 시 혹은 모델/엔진 변경 시 수동 모드 여부 자동 감지
+  useEffect(() => {
+    const modelsToUse = availableModels.length > 0 ? availableModels : FALLBACK_MODELS[llmType] || [];
+    if (llmModel && !modelsToUse.includes(llmModel)) {
+      setIsCustomModel(true);
+    } else {
+      setIsCustomModel(false);
+    }
+  }, [llmModel, llmType, availableModels]);
+
 
   // 🛢️ PostgreSQL 내장 지식 데이터베이스 관리 상태
   const [brainDocs, setBrainDocs] = useState<BrainDoc[]>([]);
@@ -215,8 +236,28 @@ export default function ConnectionsPanel() {
   const testLlmPing = async () => {
     setPingStatus('testing');
     setAvailableModels([]);
-    await new Promise((resolve) => setTimeout(resolve, 1200));
+    await new Promise((resolve) => setTimeout(resolve, 1000));
     
+    // A. 백엔드 Hono 프록시 API를 통한 CORS 회피 스캔 시도
+    try {
+      const proxyRes = await fetch('http://localhost:8000/api/proxy/models', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ llm_type: llmType, llm_url: llmUrl }),
+      });
+
+      if (proxyRes.ok) {
+        const result = await proxyRes.json();
+        if (result.success && result.models && result.models.length > 0) {
+          bindModels(result.models);
+          return;
+        }
+      }
+    } catch (err) {
+      console.warn('백엔드 프록시 통신 실패, 클라이언트 직접 핑을 우회 시도합니다.', err);
+    }
+
+    // B. 오프라인 회복 탄력성: 브라우저 직접 fetch fallback 시도 (백엔드가 꺼졌거나 프록시가 차단되었을 때)
     try {
       let pingUrl = `${llmUrl}/api/tags`;
       if (llmType === 'lmstudio') pingUrl = `${llmUrl}/models`;
@@ -225,10 +266,7 @@ export default function ConnectionsPanel() {
 
       const res = await fetch(pingUrl);
       if (res.ok) {
-        setPingStatus('success');
         const data = await res.json();
-        
-        // 실시간 모델 리스트 스캔 파싱
         let modelList: string[] = [];
         if (llmType === 'ollama') {
           modelList = data.models ? data.models.map((m: any) => m.name) : [];
@@ -239,24 +277,30 @@ export default function ConnectionsPanel() {
         }
 
         if (modelList.length > 0) {
-          setAvailableModels(modelList);
-          localStorage.setItem('connect-ai-available-models', JSON.stringify(modelList));
-          
-          // 로드된 첫 번째 모델을 자동으로 현재 모델로 바인딩
-          if (!llmModel || !modelList.includes(llmModel)) {
-            setLlmModel(modelList[0]);
-            saveSettings(llmType, llmUrl, modelList[0], teleToken, chatId, calendarLinked);
-          }
-          console.log(`🤖 실시간 연동 성공: ${modelList.length}개의 모델 목록을 감지해 이식했습니다.`, modelList);
+          bindModels(modelList);
+          return;
         }
-      } else {
-        setPingStatus('failed');
       }
+      setPingStatus('failed');
     } catch (err) {
-      console.error('LLM 핑/모델 감지 통신 실패:', err);
+      console.error('LLM 직접 핑/모델 감지 통신 마저 실패:', err);
       setPingStatus('failed');
     }
   };
+
+  const bindModels = (modelList: string[]) => {
+    setPingStatus('success');
+    setAvailableModels(modelList);
+    localStorage.setItem('connect-ai-available-models', JSON.stringify(modelList));
+    
+    // 로드된 첫 번째 모델을 자동으로 현재 모델로 바인딩
+    if (!llmModel || !modelList.includes(llmModel)) {
+      setLlmModel(modelList[0]);
+      saveSettings(llmType, llmUrl, modelList[0], teleToken, chatId, calendarLinked);
+    }
+    console.log(`🤖 실시간 연동 성공: ${modelList.length}개의 모델 목록을 감지해 이식했습니다.`, modelList);
+  };
+
 
   const testTelegram = async () => {
     setTeleTesting(true);
@@ -339,35 +383,73 @@ export default function ConnectionsPanel() {
               />
             </div>
 
-            <div className="flex flex-col gap-1">
-              <label className="text-[10px] text-gray-400">사용할 모델 선택 (Model Name)</label>
-              {availableModels.length > 0 ? (
-                <select
-                  value={llmModel}
-                  onChange={(e) => {
-                    setLlmModel(e.target.value);
-                    saveSettings(llmType, llmUrl, e.target.value, teleToken, chatId, calendarLinked);
-                  }}
-                  className="bg-obsidian border border-obsidian-border rounded-lg px-3 py-2 text-gray-200 focus:outline-none focus:border-electric-cyan font-mono"
-                >
-                  {availableModels.map((model) => (
-                    <option key={model} value={model}>
-                      {model}
+            <div className="flex flex-col gap-1 relative">
+              <div className="flex justify-between items-center">
+                <label className="text-[10px] text-gray-400">사용할 모델 선택 (Model Name)</label>
+                {availableModels.length > 0 ? (
+                  <span className="text-[8px] font-mono text-emerald-400 bg-emerald-950/40 border border-emerald-500/20 px-2 py-0.5 rounded-full animate-pulse flex items-center gap-1">
+                    ● 실시간 모델 {availableModels.length}개 감지됨
+                  </span>
+                ) : (
+                  <span className="text-[8px] font-mono text-amber-400 bg-amber-950/40 border border-amber-500/20 px-2 py-0.5 rounded-full flex items-center gap-1">
+                    ● 기본 권장 목록 (오프라인)
+                  </span>
+                )}
+              </div>
+
+              <div className="flex gap-2">
+                {!isCustomModel ? (
+                  <select
+                    value={llmModel}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      if (val === '__custom__') {
+                        setIsCustomModel(true);
+                        setLlmModel('');
+                      } else {
+                        setLlmModel(val);
+                        saveSettings(llmType, llmUrl, val, teleToken, chatId, calendarLinked);
+                      }
+                    }}
+                    className="flex-1 bg-obsidian border border-obsidian-border rounded-lg px-3 py-2 text-gray-200 focus:outline-none focus:border-electric-cyan font-mono transition-all duration-300 shadow-[0_0_10px_rgba(0,240,255,0.05)] hover:border-electric-cyan/40"
+                  >
+                    {(availableModels.length > 0 ? availableModels : FALLBACK_MODELS[llmType] || []).map((model) => (
+                      <option key={model} value={model}>
+                        {model}
+                      </option>
+                    ))}
+                    <option value="__custom__" className="text-electric-cyan font-bold">
+                      ✍️ 수동 직접 입력...
                     </option>
-                  ))}
-                </select>
-              ) : (
-                <input
-                  type="text"
-                  value={llmModel}
-                  onChange={(e) => {
-                    setLlmModel(e.target.value);
-                    saveSettings(llmType, llmUrl, e.target.value, teleToken, chatId, calendarLinked);
-                  }}
-                  placeholder="예: gemma:2b (연결 성공 시 자동 로드됩니다)"
-                  className="bg-obsidian border border-obsidian-border rounded-lg px-3 py-2 text-gray-200 focus:outline-none focus:border-electric-cyan font-mono"
-                />
-              )}
+                  </select>
+                ) : (
+                  <div className="flex-1 flex gap-1.5 items-center">
+                    <input
+                      type="text"
+                      value={llmModel}
+                      onChange={(e) => {
+                        setLlmModel(e.target.value);
+                        saveSettings(llmType, llmUrl, e.target.value, teleToken, chatId, calendarLinked);
+                      }}
+                      placeholder="예: gemma:2b"
+                      className="flex-1 bg-obsidian border border-electric-cyan rounded-lg px-3 py-2 text-gray-200 focus:outline-none focus:ring-1 focus:ring-electric-cyan font-mono"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIsCustomModel(false);
+                        const fallbackList = availableModels.length > 0 ? availableModels : FALLBACK_MODELS[llmType] || [];
+                        const firstModel = fallbackList[0] || '';
+                        setLlmModel(firstModel);
+                        saveSettings(llmType, llmUrl, firstModel, teleToken, chatId, calendarLinked);
+                      }}
+                      className="px-2.5 py-2 bg-slate-900 border border-obsidian-border text-gray-400 rounded-lg hover:text-gray-200 hover:border-slate-800 transition text-[10px] shrink-0"
+                    >
+                      목록으로
+                    </button>
+                  </div>
+                )}
+              </div>
             </div>
 
             <div className="flex items-center justify-between pt-2">
@@ -435,9 +517,10 @@ export default function ConnectionsPanel() {
 
               <button
                 onClick={testTelegram}
-                className="px-3 py-1.5 bg-electric-violet text-white font-bold rounded-lg hover:bg-violet-600 transition flex items-center gap-1 shrink-0 shadow-[0_0_10px_rgba(139,92,246,0.3)]"
+                disabled={teleTesting}
+                className="px-3 py-1.5 bg-electric-violet disabled:bg-slate-800 disabled:text-gray-500 text-white font-bold rounded-lg hover:bg-violet-600 transition flex items-center gap-1 shrink-0 shadow-[0_0_10px_rgba(139,92,246,0.3)] font-sans"
               >
-                테스트 노티 발송 📨
+                {teleTesting ? '전송 중... 📨' : '테스트 노티 발송 📨'}
               </button>
             </div>
           </div>

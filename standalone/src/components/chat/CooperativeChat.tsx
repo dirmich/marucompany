@@ -83,12 +83,31 @@ export default function CooperativeChat() {
     loadChatHistory();
   }, []);
 
-  // 2. 주기적으로 localStorage 기반 API Ping 체크
+  // 2. 주기적으로 localStorage 기반 API Ping 체크 (CORS 방지 프록시 우선 적용)
   useEffect(() => {
     const checkLLMConnection = async () => {
       const type = (localStorage.getItem('connect-ai-llm-type') as LLMEngineType) || 'ollama';
       const url = localStorage.getItem('connect-ai-llm-url') || 'http://127.0.0.1:11434';
       
+      // A. 우선 Hono 백엔드 프록시를 통해 확인 시도 (CORS 회피)
+      try {
+        const proxyRes = await fetch('http://localhost:8000/api/proxy/models', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ llm_type: type, llm_url: url }),
+        });
+        if (proxyRes.ok) {
+          const data = await proxyRes.json();
+          if (data.success) {
+            setEngineConnected(true);
+            return;
+          }
+        }
+      } catch {
+        // 백엔드 미구동 시 로그 생략하고 다이렉트 fallback
+      }
+
+      // B. Fallback: 브라우저 다이렉트 핑 테스트 (백엔드 오프라인 시)
       try {
         let pingUrl = `${url}/api/tags`;
         if (type === 'lmstudio') pingUrl = `${url}/models`;
@@ -107,6 +126,7 @@ export default function CooperativeChat() {
     const interval = setInterval(checkLLMConnection, 10000);
     return () => clearInterval(interval);
   }, []);
+
 
   const saveMessageToBackend = async (msg: ChatMessage) => {
     try {
