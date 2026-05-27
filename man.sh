@@ -48,15 +48,30 @@ else
   RUNNER="npm"
 fi
 
+# Detect OS type (Windows/Git Bash vs Unix)
+IS_WINDOWS=false
+if [[ "$OSTYPE" == "msys" || "$OSTYPE" == "cygwin" || -n "$COMSPEC" ]]; then
+  IS_WINDOWS=true
+fi
+
 get_pid() {
   local port=$1
-  lsof -t -i :"$port" 2>/dev/null | tr '\n' ' ' | sed 's/ $//'
+  if [ "$IS_WINDOWS" = true ]; then
+    netstat -ano | grep "LISTENING" | grep ":$port " | awk '{print $5}' | tr '\n' ' ' | sed 's/ $//'
+  else
+    lsof -t -i :"$port" 2>/dev/null | tr '\n' ' ' | sed 's/ $//'
+  fi
 }
 
 is_running() {
   local port=$1
-  lsof -i :"$port" -sTCP:LISTEN >/dev/null 2>&1
+  if [ "$IS_WINDOWS" = true ]; then
+    netstat -ano | grep "LISTENING" | grep ":$port " >/dev/null 2>&1
+  else
+    lsof -i :"$port" -sTCP:LISTEN >/dev/null 2>&1
+  fi
 }
+
 
 # --- Action Implementations ---
 
