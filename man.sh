@@ -7,8 +7,9 @@ YELLOW='\033[0;33m'
 BLUE='\033[0;34m'
 NC='\033[0m' # No Color
 
-# Workspace root
-WORKSPACE_DIR="/Users/dirmich/work/0.ai/marucompany"
+# Workspace root (dynamically resolved)
+WORKSPACE_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
 
 # Port definitions
 FRONT_PORT=3000
