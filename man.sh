@@ -57,9 +57,9 @@ fi
 get_pid() {
   local port=$1
   if [ "$IS_WINDOWS" = true ]; then
-    netstat -ano | grep "LISTENING" | grep ":$port " | awk '{print $5}' | tr '\n' ' ' | sed 's/ $//'
+    netstat -ano | grep "LISTENING" | grep ":$port " | awk '{print $5}' | sort -u | tr '\n' ' ' | sed 's/ $//'
   else
-    lsof -t -i :"$port" 2>/dev/null | tr '\n' ' ' | sed 's/ $//'
+    lsof -t -i :"$port" 2>/dev/null | sort -u | tr '\n' ' ' | sed 's/ $//'
   fi
 }
 
